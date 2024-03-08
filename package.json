@@ -1,0 +1,39 @@
+{
+  "name": "fetch-sse",
+  "version": "1.0.0",
+  "description": "A easy API for making Event Source requests, with all the features of fetch(), Supports browsers and node.",
+  "main": "./dist/index.js",
+  "type": "module",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "scripts": {
+    "build": "tsc --outDir dist/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yokingma/fetch-sse.git"
+  },
+  "keywords": [
+    "SSE",
+    "Server-Sent",
+    "Events",
+    "EventSource",
+    "fetch"
+  ],
+  "author": "zac.ma",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/yokingma/fetch-sse/issues"
+  },
+  "homepage": "https://github.com/yokingma/fetch-sse#readme",
+  "devDependencies": {
+    "@tsconfig/recommended": "^1.0.3",
+    "@types/node": "^20.11.25",
+    "@typescript-eslint/eslint-plugin": "^7.1.1",
+    "@typescript-eslint/parser": "^7.1.1",
+    "eslint": "^8.57.0",
+    "typescript": "^5.4.2",
+    "typescript-eslint": "^7.1.1"
+  }
+}

@@ -3,7 +3,7 @@
   "version": "1.0.3",
   "description": "A easy API for making Event Source requests, with all the features of fetch(), Supports browsers and node.",
   "main": "./build/index.js",
-  "type": "module",
+  "types": "./build/index.d.ts",
   "engines": {
     "node": ">=14.0.0"
   },

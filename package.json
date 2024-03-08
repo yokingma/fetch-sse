@@ -1,6 +1,6 @@
 {
   "name": "fetch-sse",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "A easy API for making Event Source requests, with all the features of fetch(), Supports browsers and node.",
   "main": "./dist/index.js",
   "type": "module",

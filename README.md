@@ -1,5 +1,5 @@
 # Fetch SSE (Server-Sent Events)
-This package provides a easy API for making Event Source requests with all the features of Fetch API, and supports browsers and nodejs.
+This package provides an easy API for making Event Source requests with all the features of Fetch API, and supports browsers and nodejs.
 
 # Install
 ```

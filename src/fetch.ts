@@ -16,7 +16,7 @@ export async function fetchEventData(url: string, options: IFetchOptions = {}): 
       signal: signal
     });
     const reader = res.body?.getReader();
-    onOpen?.();
+    onOpen?.(res);
     while(true) {
       if (!reader) break;
       const { value, done } = await reader.read();

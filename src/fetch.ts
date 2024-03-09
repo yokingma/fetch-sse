@@ -17,7 +17,6 @@ export async function fetchEventData(url: string, options: IFetchOptions = {}): 
     });
     const reader = res.body?.getReader();
     onOpen?.();
-    onClose?.();
     while(true) {
       if (!reader) break;
       const { value, done } = await reader.read();
@@ -25,6 +24,7 @@ export async function fetchEventData(url: string, options: IFetchOptions = {}): 
       onMessage?.(decoded, done);
       if (done) break;
     }
+    onClose?.();
   } catch (err) {
     onError?.(err);
   }

@@ -19,7 +19,6 @@ async function fetchEventData(url, options = {}) {
         });
         const reader = (_a = res.body) === null || _a === void 0 ? void 0 : _a.getReader();
         onOpen === null || onOpen === void 0 ? void 0 : onOpen();
-        onClose === null || onClose === void 0 ? void 0 : onClose();
         while (true) {
             if (!reader)
                 break;
@@ -29,6 +28,7 @@ async function fetchEventData(url, options = {}) {
             if (done)
                 break;
         }
+        onClose === null || onClose === void 0 ? void 0 : onClose();
     }
     catch (err) {
         onError === null || onError === void 0 ? void 0 : onError(err);

@@ -4,14 +4,13 @@ import { SSEDecoder } from './sse';
 const sse = new SSEDecoder();
 export async function fetchEventData(url: string, options: IFetchOptions = {}): Promise<void> {
   const { method, data, headers = {}, signal, onMessage, onError, onOpen, onClose } = options;
-  Object.assign(headers, {
-    Accept: 'text/event-stream',
-    'Content-type': 'application/json',
+  const mergedHeaders = Object.assign({}, headers, {
+    Accept: 'text/event-stream'
   });
   try {
     const res = await fetch(url, {
       method,
-      headers,
+      headers: mergedHeaders,
       body: JSON.stringify(data),
       signal: signal
     });

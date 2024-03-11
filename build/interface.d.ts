@@ -11,7 +11,7 @@ export interface IFetchOptions {
     data?: Record<string, any>;
     signal?: AbortSignal;
     onMessage?: (event: ServerSentEvent | null, done?: boolean) => void;
-    onOpen?: () => void;
+    onOpen?: (res?: Response) => void;
     onClose?: () => void;
     onError?: (error: any) => void;
 }

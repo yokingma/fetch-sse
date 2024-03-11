@@ -6,19 +6,18 @@ const sse = new sse_1.SSEDecoder();
 async function fetchEventData(url, options = {}) {
     var _a;
     const { method, data, headers = {}, signal, onMessage, onError, onOpen, onClose } = options;
-    Object.assign(headers, {
-        Accept: 'text/event-stream',
-        'Content-type': 'application/json',
+    const mergedHeaders = Object.assign({}, headers, {
+        Accept: 'text/event-stream'
     });
     try {
         const res = await fetch(url, {
             method,
-            headers,
+            headers: mergedHeaders,
             body: JSON.stringify(data),
             signal: signal
         });
         const reader = (_a = res.body) === null || _a === void 0 ? void 0 : _a.getReader();
-        onOpen === null || onOpen === void 0 ? void 0 : onOpen();
+        onOpen === null || onOpen === void 0 ? void 0 : onOpen(res);
         while (true) {
             if (!reader)
                 break;

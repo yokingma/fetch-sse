@@ -7,7 +7,7 @@ export interface ServerSentEvent {
 }
 export interface IFetchOptions {
     method?: string;
-    headers?: HeadersInit;
+    headers?: HeadersInit | Record<string, any>;
     data?: Record<string, any>;
     signal?: AbortSignal;
     onMessage?: (event: ServerSentEvent | null, done?: boolean) => void;

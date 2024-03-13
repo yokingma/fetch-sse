@@ -16,18 +16,21 @@ async function fetchEventData(url, options = {}) {
             body: JSON.stringify(data),
             signal: signal
         });
-        const reader = (_a = res.body) === null || _a === void 0 ? void 0 : _a.getReader();
         onOpen === null || onOpen === void 0 ? void 0 : onOpen(res);
-        while (true) {
-            if (!reader)
-                break;
-            const { value, done } = await reader.read();
-            const decoded = sse.decode(value);
-            onMessage === null || onMessage === void 0 ? void 0 : onMessage(decoded, done);
-            if (done)
-                break;
+        // consumes data
+        if (typeof onMessage === 'function') {
+            const reader = (_a = res.body) === null || _a === void 0 ? void 0 : _a.getReader();
+            while (true) {
+                if (!reader)
+                    break;
+                const { value, done } = await reader.read();
+                const decoded = sse.decode(value);
+                onMessage(decoded, done);
+                if (done)
+                    break;
+            }
+            onClose === null || onClose === void 0 ? void 0 : onClose();
         }
-        onClose === null || onClose === void 0 ? void 0 : onClose();
     }
     catch (err) {
         onError === null || onError === void 0 ? void 0 : onError(err);

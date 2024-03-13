@@ -14,16 +14,19 @@ export async function fetchEventData(url: string, options: IFetchOptions = {}): 
       body: JSON.stringify(data),
       signal: signal
     });
-    const reader = res.body?.getReader();
     onOpen?.(res);
-    while(true) {
-      if (!reader) break;
-      const { value, done } = await reader.read();
-      const decoded = sse.decode(value);
-      onMessage?.(decoded, done);
-      if (done) break;
+    // consumes data
+    if (typeof onMessage === 'function') {
+      const reader = res.body?.getReader();
+      while(true) {
+        if (!reader) break;
+        const { value, done } = await reader.read();
+        const decoded = sse.decode(value);
+        onMessage(decoded, done);
+        if (done) break;
+      }
+      onClose?.();
     }
-    onClose?.();
   } catch (err) {
     onError?.(err);
   }

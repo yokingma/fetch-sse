@@ -5,7 +5,7 @@
     "module": "commonjs",
     "target": "ES2017",
     "outDir": "dist",
-    "rootDir": "./src",
+    "rootDir": ".",
     "noImplicitAny": true,
     "strict": true,
     "typeRoots": [
@@ -13,10 +13,12 @@
     ]
   },
   "include": [
-    "src/**/*.ts"
+    "src/**/*.ts",
+    "test/**/*.ts"
   ],
   "exclude": [
     "dist",
-    "node_modules"
+    "node_modules",
+    "jest.config.js"
   ]
 }

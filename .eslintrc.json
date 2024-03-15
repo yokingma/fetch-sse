@@ -12,6 +12,14 @@
 		"project": "./tsconfig.json"
 	},
   "plugins": ["@typescript-eslint"],
+  "overrides": [
+    {
+      "files": ["tests/**/*"],
+      "env": {
+        "jest": true
+      }
+    }
+  ],
   "rules": {
     "@typescript-eslint/no-explicit-any": "off",
     "no-constant-condition": "off",

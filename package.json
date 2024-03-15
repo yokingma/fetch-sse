@@ -8,7 +8,8 @@
     "node": ">=14.0.0"
   },
   "scripts": {
-    "build": "tsc --outDir build/"
+    "build": "tsc --outDir build/",
+    "test": "jest"
   },
   "repository": {
     "type": "git",
@@ -28,11 +29,15 @@
   },
   "homepage": "https://github.com/yokingma/fetch-sse#readme",
   "devDependencies": {
+    "@jest/globals": "^29.7.0",
     "@tsconfig/recommended": "^1.0.3",
+    "@types/jest": "^29.5.12",
     "@types/node": "^20.11.25",
     "@typescript-eslint/eslint-plugin": "^7.1.1",
     "@typescript-eslint/parser": "^7.1.1",
     "eslint": "^8.57.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
     "typescript": "^5.4.2",
     "typescript-eslint": "^7.1.1"
   }

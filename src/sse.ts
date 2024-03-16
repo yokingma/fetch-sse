@@ -22,8 +22,7 @@ export class SSEDecoder {
    * @description decode string from sse stream
    */
   public decode(chunk: Bytes) {
-    if (!chunk) 
-      throw new Error('Attempted to read with no chunk');
+    if (!chunk) return [];
     const lines = this.lineDecoder.decode(chunk);
     const list: ServerSentEvent[] = [];
     for (const line of lines) {

@@ -25,7 +25,9 @@ async function fetchEventData(url, options = {}) {
                     break;
                 const { value, done } = await reader.read();
                 const decoded = sse.decode(value);
-                onMessage(decoded, done);
+                for (const event of decoded) {
+                    onMessage(event, done);
+                }
                 if (done)
                     break;
             }

@@ -1,4 +1,4 @@
-import { ServerSentEvent } from './interface';
+import { Bytes, ServerSentEvent } from './interface';
 export declare class SSEDecoder {
     private data;
     private event;
@@ -8,6 +8,6 @@ export declare class SSEDecoder {
     /**
      * @description decode string from sse stream
      */
-    decode(arrayBuf?: ArrayBuffer | null): ServerSentEvent | null;
+    decode(chunk: Bytes): ServerSentEvent[];
     private lineDecode;
 }

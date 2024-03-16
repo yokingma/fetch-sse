@@ -21,13 +21,22 @@ export class SSEDecoder {
   /**
    * @description decode string from sse stream
    */
-  public decode(arrayBuf?: ArrayBuffer | null) {
-    if (!arrayBuf) return null;
-    const line = this.lineDecoder.decode(arrayBuf);
-    const list = line.map(item => {
-      return this.lineDecode(item);
-    });
-    return list.filter(item => item !== null)[0];
+  public decode(chunk: Bytes) {
+    if (!chunk) 
+      throw new Error('Attempted to read with no chunk');
+    const lines = this.lineDecoder.decode(chunk);
+    const list: ServerSentEvent[] = [];
+    for (const line of lines) {
+      const sse = this.lineDecode(line);
+      if (sse) {
+        list.push(sse);
+      }
+    }
+    for (const line of this.lineDecoder.flush()) {
+      const sse = this.lineDecode(line);
+      if (sse) list.push(sse);
+    }
+    return list;
   }
 
   private lineDecode(line: string) {

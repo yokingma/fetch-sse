@@ -5,7 +5,7 @@
   "main": "./build/index.js",
   "types": "./build/index.d.ts",
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=17.5"
   },
   "scripts": {
     "build": "tsc --outDir build/",

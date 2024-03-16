@@ -22,7 +22,9 @@ export async function fetchEventData(url: string, options: IFetchOptions = {}): 
         if (!reader) break;
         const { value, done } = await reader.read();
         const decoded = sse.decode(value);
-        onMessage(decoded, done);
+        for (const event of decoded) {
+          onMessage(event, done);
+        }
         if (done) break;
       }
       onClose?.();

@@ -2,8 +2,7 @@ import { SSEDecoder } from '../src/sse';
 
 const decoder = new SSEDecoder();
 
-describe('SSEDecoder', () => {
-  
+describe('SSEDecoder', () => {  
   test('should decode data-only messages', () => {
     const data = '{"username": "bobby", "time": "02:33:48"}';
     const line = `data: ${data}`;
@@ -34,4 +33,3 @@ describe('SSEDecoder', () => {
   });
 
 });
-

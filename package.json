@@ -1,6 +1,6 @@
 {
   "name": "fetch-sse",
-  "version": "1.0.10",
+  "version": "1.0.12",
   "description": "An easy API for making Event Source requests, with all the features of fetch(), Supports browsers and node.",
   "main": "./build/index.js",
   "types": "./build/index.d.ts",
@@ -8,7 +8,7 @@
     "node": ">=17.5"
   },
   "scripts": {
-    "build": "tsc --outDir build/",
+    "build": "tsc --project tsconfig.build.json --outDir build/",
     "test": "jest"
   },
   "repository": {

@@ -4,8 +4,7 @@
     "declaration": true,
     "module": "commonjs",
     "target": "ES2017",
-    "outDir": "dist",
-    "rootDir": ".",
+    "outDir": "./build",
     "noImplicitAny": true,
     "strict": true,
     "typeRoots": [
@@ -14,10 +13,11 @@
   },
   "include": [
     "src/**/*.ts",
-    "test/**/*.ts"
+    "test/**/*.ts",
   ],
   "exclude": [
     "dist",
+    "build",
     "node_modules",
     "jest.config.js"
   ]

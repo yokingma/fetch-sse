@@ -17,7 +17,7 @@ class SSEDecoder {
      */
     decode(chunk) {
         if (!chunk)
-            throw new Error('Attempted to read with no chunk');
+            return [];
         const lines = this.lineDecoder.decode(chunk);
         const list = [];
         for (const line of lines) {

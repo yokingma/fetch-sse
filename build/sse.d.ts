@@ -9,5 +9,6 @@ export declare class SSEDecoder {
      * @description decode string from sse stream
      */
     decode(chunk: Bytes): ServerSentEvent[];
-    private lineDecode;
+    private parseTextLine;
+    private clear;
 }

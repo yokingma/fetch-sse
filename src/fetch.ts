@@ -3,7 +3,7 @@ import { SSEDecoder } from './sse';
 
 const sse = new SSEDecoder();
 
-const checkOk = async (response: Response): Promise<void> => {
+export const checkOk = async (response: Response): Promise<void> => {
   if (!response.ok) {
     const defaultMessage = `Error ${response.status}: ${response.statusText}`;
     let message = '';

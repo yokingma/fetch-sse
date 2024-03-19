@@ -1,5 +1,5 @@
 import { SSEDecoder } from '../src/sse';
-import { checkOk } from '../src/fetch';
+import { checkOk } from '../src/utils';
 
 const decoder = new SSEDecoder();
 

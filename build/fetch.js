@@ -3,8 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.fetchEventData = void 0;
 const sse_1 = require("./sse");
 const utils_1 = require("./utils");
-const sse = new sse_1.SSEDecoder();
 async function fetchEventData(url, options = {}) {
+    const sse = new sse_1.SSEDecoder();
     const { method, data, headers = {}, signal, onMessage, onError, onOpen, onClose } = options;
     const defaultHeaders = {
         Accept: 'text/event-stream',

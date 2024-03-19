@@ -5,7 +5,7 @@ const decoder = new SSEDecoder();
 
 describe('SSEDecoder', () => {  
   test('should decode data-only messages', () => {
-    const raw = '{"username": "bobby", "time": "02:33:48"}';
+    const raw = '{"username": "bobby", "time": "02:33:46"}';
     const line = `data: ${raw}`;
     const buf = Buffer.from(`${line}\n\n`, 'utf-8');
     const data = decoder.decode(buf)[0];

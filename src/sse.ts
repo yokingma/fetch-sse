@@ -5,81 +5,6 @@ const NEWLINE_CHARS = new Set(['\n', '\r', '\x0b', '\x0c', '\x1c', '\x1d', '\x1e
 // eslint-disable-next-line no-control-regex
 const NEWLINE_REGEXP = /\r\n|[\n\r\x0b\x0c\x1c\x1d\x1e\x85\u2028\u2029]/g;
 
-export class SSEDecoder {
-  private data: string[];
-  private event: string | null;
-  private chunks: string[];
-  private lineDecoder: LineDecoder;
-
-  constructor() {
-    this.event = null;
-    this.data = [];
-    this.chunks = [];
-    this.lineDecoder = new LineDecoder();
-  }
-
-  /**
-   * @description decode string from sse stream
-   */
-  public decode(chunk: Bytes) {
-    if (!chunk) return [];
-    const lines = this.lineDecoder.decode(chunk);
-    const list: ServerSentEvent[] = [];
-    for (const line of lines) {
-      const sse = this.lineDecode(line);
-      if (sse) {
-        list.push(sse);
-      }
-    }
-    for (const line of this.lineDecoder.flush()) {
-      const sse = this.lineDecode(line);
-      if (sse) list.push(sse);
-    }
-    return list;
-  }
-
-  private lineDecode(line: string) {
-    if (line.endsWith('\r')) {
-      line = line.substring(0, line.length - 1);
-    }
-    if (!line) {
-      // empty line and we didn't previously encounter any messages
-      if (!this.event && !this.data.length) return null;
-
-      const sse: ServerSentEvent = {
-        event: this.event,
-        data: this.data.join('\n'),
-        raw: this.chunks,
-      };
-
-      this.event = null;
-      this.data = [];
-      this.chunks = [];
-
-      return sse;
-    }
-
-    this.chunks.push(line);
-
-    if (line.startsWith(':')) {
-      return null;
-    }
-    const [fieldName, , value] = partition(line, ':');
-    let str = value;
-    if (value.startsWith(' ')) {
-      str = value.substring(1);
-    }
-
-    if (fieldName === 'event') {
-      this.event = str;
-    } else if (fieldName === 'data') {
-      this.data.push(str);
-    }
-    return null;
-  }
-}
-
-
 /**
  * from openai sdk.
  * A re-implementation of http[s]'s `LineDecoder` that handles incrementally
@@ -101,6 +26,7 @@ class LineDecoder {
   decode(chunk: Bytes): string[] {
     let text = this.decodeText(chunk);
 
+    // end with Carriage Return
     if (this.trailingCR) {
       text = '\r' + text;
       this.trailingCR = false;
@@ -180,6 +106,93 @@ class LineDecoder {
     this.buffer = [];
     this.trailingCR = false;
     return lines;
+  }
+}
+
+const lindDecoder = new LineDecoder();
+export class SSEDecoder {
+  private data: string[];
+  private event: string | null;
+  private chunks: string[];
+  private lineDecoder: LineDecoder;
+
+  constructor() {
+    this.event = null;
+    this.data = [];
+    this.chunks = [];
+    this.lineDecoder = lindDecoder;
+  }
+
+  /**
+   * @description decode string from sse stream
+   */
+  public decode(chunk: Bytes) {
+    if (!chunk) return [];
+    try {
+      const lines = this.lineDecoder.decode(chunk);
+      const list: ServerSentEvent[] = [];
+      for (const line of lines) {
+        const sseData = this.parseTextLine(line);
+        if (sseData) {
+          list.push(sseData);
+        }
+      }
+      for (const line of this.lineDecoder.flush()) {
+        const sseData = this.parseTextLine(line);
+        if (sseData) list.push(sseData);
+      }
+      this.clear();
+      return list;
+    } catch(error: any) {
+      this.clear();
+      throw new Error(error);
+    }
+  }
+
+  private parseTextLine(line: string) {
+    if (line.endsWith('\r')) {
+      line = line.substring(0, line.length - 1);
+    }
+    if (!line) {
+      // empty line and we didn't previously encounter any messages
+      if (!this.event && !this.data.length) return null;
+
+      const sse: ServerSentEvent = {
+        event: this.event,
+        data: this.data.join('\n'),
+        raw: this.chunks,
+      };
+
+      this.event = null;
+      this.data = [];
+      this.chunks = [];
+
+      return sse;
+    }
+
+    this.chunks.push(line);
+
+    if (line.startsWith(':')) {
+      return null;
+    }
+    const [fieldName, , value] = partition(line, ':');
+    let str = value;
+    if (value.startsWith(' ')) {
+      str = value.substring(1);
+    }
+
+    if (fieldName === 'event') {
+      this.event = str;
+    } else if (fieldName === 'data') {
+      this.data.push(str);
+    }
+    return null;
+  }
+
+  private clear() {
+    this.event = null;
+    this.chunks = [];
+    this.data = [];
   }
 }
 

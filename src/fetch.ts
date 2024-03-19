@@ -2,8 +2,8 @@ import { IFetchOptions } from './interface';
 import { SSEDecoder } from './sse';
 import { checkOk } from './utils';
 
-const sse = new SSEDecoder();
 export async function fetchEventData(url: string, options: IFetchOptions = {}): Promise<void> {
+  const sse = new SSEDecoder();
   const { method, data, headers = {}, signal, onMessage, onError, onOpen, onClose } = options;
   const defaultHeaders = {
     Accept: 'text/event-stream',

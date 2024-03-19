@@ -82,7 +82,7 @@ export class SSEDecoder {
 
 /**
  * from openai sdk.
- * A re-implementation of httpx's `LineDecoder` that handles incrementally
+ * A re-implementation of http[s]'s `LineDecoder` that handles incrementally
  * reading lines from text.
  *
  * https://github.com/encode/httpx/blob/920333ea98118e9cf617f246905d7b202510941c/httpx/_decoders.py#L258
@@ -141,10 +141,10 @@ class LineDecoder {
     // Node:
     if (typeof Buffer !== 'undefined') {
       if (bytes instanceof Buffer) {
-        return bytes.toString();
+        return bytes.toString('utf-8');
       }
       if (bytes instanceof Uint8Array) {
-        return Buffer.from(bytes).toString();
+        return Buffer.from(bytes).toString('utf-8');
       }
 
       throw new Error(

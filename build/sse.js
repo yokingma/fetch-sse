@@ -82,12 +82,12 @@ class LineDecoder {
         return lines;
     }
 }
-const lindDecoder = new LineDecoder();
 class SSEDecoder {
     constructor() {
         this.event = null;
         this.data = [];
         this.chunks = [];
+        const lindDecoder = new LineDecoder();
         this.lineDecoder = lindDecoder;
     }
     /**

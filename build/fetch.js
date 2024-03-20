@@ -4,7 +4,6 @@ exports.fetchEventData = void 0;
 const sse_1 = require("./sse");
 const utils_1 = require("./utils");
 async function fetchEventData(url, options = {}) {
-    const sse = new sse_1.SSEDecoder();
     const { method, data, headers = {}, signal, onMessage, onError, onOpen, onClose } = options;
     const defaultHeaders = {
         Accept: 'text/event-stream',
@@ -12,6 +11,7 @@ async function fetchEventData(url, options = {}) {
     };
     const mergedHeaders = Object.assign(Object.assign({}, defaultHeaders), headers);
     try {
+        const sse = new sse_1.SSEDecoder();
         const res = await fetch(url, {
             method,
             headers: mergedHeaders,

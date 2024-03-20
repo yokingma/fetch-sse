@@ -109,7 +109,6 @@ class LineDecoder {
   }
 }
 
-const lindDecoder = new LineDecoder();
 export class SSEDecoder {
   private data: string[];
   private event: string | null;
@@ -120,6 +119,7 @@ export class SSEDecoder {
     this.event = null;
     this.data = [];
     this.chunks = [];
+    const lindDecoder = new LineDecoder();
     this.lineDecoder = lindDecoder;
   }
 

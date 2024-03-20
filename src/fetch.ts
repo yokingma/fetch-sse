@@ -3,7 +3,6 @@ import { SSEDecoder } from './sse';
 import { checkOk } from './utils';
 
 export async function fetchEventData(url: string, options: IFetchOptions = {}): Promise<void> {
-  const sse = new SSEDecoder();
   const { method, data, headers = {}, signal, onMessage, onError, onOpen, onClose } = options;
   const defaultHeaders = {
     Accept: 'text/event-stream',
@@ -14,6 +13,7 @@ export async function fetchEventData(url: string, options: IFetchOptions = {}): 
     ...headers
   };
   try {
+    const sse = new SSEDecoder();
     const res = await fetch(url, {
       method,
       headers: mergedHeaders,

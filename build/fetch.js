@@ -11,7 +11,6 @@ async function fetchEventData(url, options = {}) {
     };
     const mergedHeaders = Object.assign(Object.assign({}, defaultHeaders), headers);
     try {
-        const sse = new sse_1.SSEDecoder();
         const res = await fetch(url, {
             method,
             headers: mergedHeaders,
@@ -27,7 +26,7 @@ async function fetchEventData(url, options = {}) {
                 const { value, done } = await reader.read();
                 if (done)
                     break;
-                const decoded = sse.decode(value);
+                const decoded = (0, sse_1.parseServerSentEvent)(value);
                 for (const event of decoded) {
                     onMessage(event, done);
                 }

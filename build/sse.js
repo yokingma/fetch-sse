@@ -1,10 +1,32 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SSEDecoder = void 0;
+exports.SSEDecoder = exports.LineDecoder = exports.parseServerSentEvent = void 0;
 // prettier-ignore
 const NEWLINE_CHARS = new Set(['\n', '\r', '\x0b', '\x0c', '\x1c', '\x1d', '\x1e', '\x85', '\u2028', '\u2029']);
 // eslint-disable-next-line no-control-regex
 const NEWLINE_REGEXP = /\r\n|[\n\r\x0b\x0c\x1c\x1d\x1e\x85\u2028\u2029]/g;
+function parseServerSentEvent(chunk) {
+    if (!chunk)
+        return [];
+    const decoder = new SSEDecoder();
+    const lineDecoder = new LineDecoder();
+    // raw string lines
+    const lines = lineDecoder.decode(chunk);
+    const list = [];
+    for (const line of lines) {
+        const sseData = decoder.decode(line);
+        if (sseData) {
+            list.push(sseData);
+        }
+    }
+    for (const line of lineDecoder.flush()) {
+        const sseData = decoder.decode(line);
+        if (sseData)
+            list.push(sseData);
+    }
+    return list;
+}
+exports.parseServerSentEvent = parseServerSentEvent;
 /**
  * from openai sdk.
  * A re-implementation of http[s]'s `LineDecoder` that handles incrementally
@@ -82,43 +104,17 @@ class LineDecoder {
         return lines;
     }
 }
+exports.LineDecoder = LineDecoder;
+/**
+ * decode string lines to ServerSentEvent
+ */
 class SSEDecoder {
     constructor() {
         this.event = null;
         this.data = [];
         this.chunks = [];
-        const lindDecoder = new LineDecoder();
-        this.lineDecoder = lindDecoder;
     }
-    /**
-     * @description decode string from sse stream
-     */
-    decode(chunk) {
-        if (!chunk)
-            return [];
-        try {
-            const lines = this.lineDecoder.decode(chunk);
-            const list = [];
-            for (const line of lines) {
-                const sseData = this.parseTextLine(line);
-                if (sseData) {
-                    list.push(sseData);
-                }
-            }
-            for (const line of this.lineDecoder.flush()) {
-                const sseData = this.parseTextLine(line);
-                if (sseData)
-                    list.push(sseData);
-            }
-            this.clear();
-            return list;
-        }
-        catch (error) {
-            this.clear();
-            throw new Error(error);
-        }
-    }
-    parseTextLine(line) {
+    decode(line) {
         if (line.endsWith('\r')) {
             line = line.substring(0, line.length - 1);
         }
@@ -152,11 +148,6 @@ class SSEDecoder {
             this.data.push(str);
         }
         return null;
-    }
-    clear() {
-        this.event = null;
-        this.chunks = [];
-        this.data = [];
     }
 }
 exports.SSEDecoder = SSEDecoder;

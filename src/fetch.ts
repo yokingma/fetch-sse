@@ -1,5 +1,5 @@
 import { IFetchOptions } from './interface';
-import { SSEDecoder } from './sse';
+import { parseServerSentEvent } from './sse';
 import { checkOk } from './utils';
 
 export async function fetchEventData(url: string, options: IFetchOptions = {}): Promise<void> {
@@ -13,7 +13,6 @@ export async function fetchEventData(url: string, options: IFetchOptions = {}): 
     ...headers
   };
   try {
-    const sse = new SSEDecoder();
     const res = await fetch(url, {
       method,
       headers: mergedHeaders,
@@ -28,7 +27,7 @@ export async function fetchEventData(url: string, options: IFetchOptions = {}): 
       while(true) {
         const { value, done } = await reader.read();
         if (done) break;
-        const decoded = sse.decode(value);
+        const decoded = parseServerSentEvent(value);
         for (const event of decoded) {
           onMessage(event, done);
         }

@@ -5,6 +5,29 @@ const NEWLINE_CHARS = new Set(['\n', '\r', '\x0b', '\x0c', '\x1c', '\x1d', '\x1e
 // eslint-disable-next-line no-control-regex
 const NEWLINE_REGEXP = /\r\n|[\n\r\x0b\x0c\x1c\x1d\x1e\x85\u2028\u2029]/g;
 
+export function parseServerSentEvent(chunk: Bytes): ServerSentEvent[] | [] {
+  if (!chunk) return [];
+  const decoder = new SSEDecoder();
+  const lineDecoder = new LineDecoder();
+  // raw string lines
+  const lines = lineDecoder.decode(chunk);
+
+  const list: ServerSentEvent[] = [];
+
+  for (const line of lines) {
+    const sseData = decoder.decode(line);
+    if (sseData) {
+      list.push(sseData);
+    }
+  }
+
+  for (const line of lineDecoder.flush()) {
+    const sseData = decoder.decode(line);
+    if (sseData) list.push(sseData);
+  }
+  return list;
+}
+
 /**
  * from openai sdk.
  * A re-implementation of http[s]'s `LineDecoder` that handles incrementally
@@ -12,7 +35,7 @@ const NEWLINE_REGEXP = /\r\n|[\n\r\x0b\x0c\x1c\x1d\x1e\x85\u2028\u2029]/g;
  *
  * https://github.com/encode/httpx/blob/920333ea98118e9cf617f246905d7b202510941c/httpx/_decoders.py#L258
  */
-class LineDecoder {
+export class LineDecoder {
   buffer: string[];
   trailingCR: boolean;
   // TextDecoder found in browsers; not typed to avoid pulling in either "dom" or "node" types.
@@ -109,47 +132,22 @@ class LineDecoder {
   }
 }
 
+/**
+ * decode string lines to ServerSentEvent
+ */
 export class SSEDecoder {
   private data: string[];
   private event: string | null;
   private chunks: string[];
-  private lineDecoder: LineDecoder;
 
   constructor() {
     this.event = null;
     this.data = [];
     this.chunks = [];
-    const lindDecoder = new LineDecoder();
-    this.lineDecoder = lindDecoder;
   }
 
-  /**
-   * @description decode string from sse stream
-   */
-  public decode(chunk: Bytes) {
-    if (!chunk) return [];
-    try {
-      const lines = this.lineDecoder.decode(chunk);
-      const list: ServerSentEvent[] = [];
-      for (const line of lines) {
-        const sseData = this.parseTextLine(line);
-        if (sseData) {
-          list.push(sseData);
-        }
-      }
-      for (const line of this.lineDecoder.flush()) {
-        const sseData = this.parseTextLine(line);
-        if (sseData) list.push(sseData);
-      }
-      this.clear();
-      return list;
-    } catch(error: any) {
-      this.clear();
-      throw new Error(error);
-    }
-  }
 
-  private parseTextLine(line: string) {
+  public decode(line: string) {
     if (line.endsWith('\r')) {
       line = line.substring(0, line.length - 1);
     }
@@ -189,11 +187,21 @@ export class SSEDecoder {
     return null;
   }
 
-  private clear() {
-    this.event = null;
-    this.chunks = [];
-    this.data = [];
-  }
+  // private decodeChunk(chunk: Bytes) {
+  //   const decoder = new LineDecoder();
+  //   return decoder.decode(chunk);
+  // }
+
+  // private decodeChunks(chunks: string[]) {
+  //   const decoder = new LineDecoder();
+  //   const lines: string[] = [];
+  //   for (const chunk of chunks) {
+  //     const decoded = decoder.decode(chunk);
+  //     lines.push(...decoded);
+  //   }
+
+  //   return lines;
+  // }
 }
 
 function partition(str: string, delimiter: string): [string, string, string] {

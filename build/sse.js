@@ -1,32 +1,46 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SSEDecoder = exports.LineDecoder = exports.parseServerSentEvent = void 0;
+exports.SSEDecoder = exports.LineDecoder = exports.getBytes = exports.parseServerSentEvent = void 0;
 // prettier-ignore
 const NEWLINE_CHARS = new Set(['\n', '\r', '\x0b', '\x0c', '\x1c', '\x1d', '\x1e', '\x85', '\u2028', '\u2029']);
 // eslint-disable-next-line no-control-regex
 const NEWLINE_REGEXP = /\r\n|[\n\r\x0b\x0c\x1c\x1d\x1e\x85\u2028\u2029]/g;
-function parseServerSentEvent(chunk) {
-    if (!chunk)
-        return [];
+async function parseServerSentEvent(stream, onMessage) {
     const decoder = new SSEDecoder();
-    const lineDecoder = new LineDecoder();
-    // raw string lines
-    const lines = lineDecoder.decode(chunk);
-    const list = [];
-    for (const line of lines) {
-        const sseData = decoder.decode(line);
-        if (sseData) {
-            list.push(sseData);
+    await getBytes(stream, (chunk) => {
+        const lineDecoder = new LineDecoder();
+        // raw string lines
+        const lines = lineDecoder.decode(chunk);
+        for (const line of lines) {
+            const sseData = decoder.decode(line);
+            if (sseData) {
+                onMessage(sseData);
+            }
         }
-    }
-    for (const line of lineDecoder.flush()) {
-        const sseData = decoder.decode(line);
-        if (sseData)
-            list.push(sseData);
-    }
-    return list;
+        for (const line of lineDecoder.flush()) {
+            const sseData = decoder.decode(line);
+            if (sseData)
+                onMessage(sseData);
+        }
+    });
 }
 exports.parseServerSentEvent = parseServerSentEvent;
+/**
+ * Converts a ReadableStream into a callback pattern.
+ * @param stream The input ReadableStream.
+ * @param onChunk A function that will be called on each new byte chunk in the stream.
+ * @returns A promise that will be resolved when the stream closes.
+ */
+async function getBytes(stream, onChunk) {
+    const reader = stream.getReader();
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done)
+            break;
+        onChunk(value);
+    }
+}
+exports.getBytes = getBytes;
 /**
  * from openai sdk.
  * A re-implementation of http[s]'s `LineDecoder` that handles incrementally

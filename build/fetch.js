@@ -21,17 +21,9 @@ async function fetchEventData(url, options = {}) {
         onOpen === null || onOpen === void 0 ? void 0 : onOpen(res);
         // consumes data
         if (typeof onMessage === 'function' && res.body) {
-            const reader = res.body.getReader();
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done)
-                    break;
-                const decoded = (0, sse_1.parseServerSentEvent)(value);
-                for (const event of decoded) {
-                    onMessage(event, done);
-                }
-            }
-            onMessage(null, true);
+            await (0, sse_1.parseServerSentEvent)(res.body, (event) => {
+                onMessage(event);
+            });
             onClose === null || onClose === void 0 ? void 0 : onClose();
         }
     }

@@ -23,16 +23,9 @@ export async function fetchEventData(url: string, options: IFetchOptions = {}): 
     onOpen?.(res);
     // consumes data
     if (typeof onMessage === 'function' && res.body) {
-      const reader = res.body.getReader();
-      while(true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        const decoded = parseServerSentEvent(value);
-        for (const event of decoded) {
-          onMessage(event, done);
-        }
-      }
-      onMessage(null, true);
+      await parseServerSentEvent(res.body, (event) => {
+        onMessage(event);
+      });
       onClose?.();
     }
   } catch (err) {

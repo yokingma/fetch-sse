@@ -1,9 +1,11 @@
 import { Bytes, ServerSentEvent } from './interface';
 
 // prettier-ignore
-const NEWLINE_CHARS = new Set(['\n', '\r', '\x0b', '\x0c', '\x1c', '\x1d', '\x1e', '\x85', '\u2028', '\u2029']);
+const NEWLINE_CHARS = new Set(['\n', '\r']);
+// const NEWLINE_CHARS = new Set(['\n', '\r', '\x0b', '\x0c', '\x1c', '\x1d', '\x1e', '\x85', '\u2028', '\u2029']);
 // eslint-disable-next-line no-control-regex
-const NEWLINE_REGEXP = /\r\n|[\n\r\x0b\x0c\x1c\x1d\x1e\x85\u2028\u2029]/g;
+const NEWLINE_REGEXP = /\r\n|[\n\r]/g;
+// const NEWLINE_REGEXP = /\r\n|[\n\r\x0b\x0c\x1c\x1d\x1e\x85\u2028\u2029]/g;
 
 export async function parseServerSentEvent(stream: ReadableStream<Uint8Array>, onMessage: (event: ServerSentEvent) => void) {
   const decoder = new SSEDecoder();

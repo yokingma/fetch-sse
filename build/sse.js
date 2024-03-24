@@ -2,9 +2,11 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SSEDecoder = exports.LineDecoder = exports.getBytes = exports.parseServerSentEvent = void 0;
 // prettier-ignore
-const NEWLINE_CHARS = new Set(['\n', '\r', '\x0b', '\x0c', '\x1c', '\x1d', '\x1e', '\x85', '\u2028', '\u2029']);
+const NEWLINE_CHARS = new Set(['\n', '\r']);
+// const NEWLINE_CHARS = new Set(['\n', '\r', '\x0b', '\x0c', '\x1c', '\x1d', '\x1e', '\x85', '\u2028', '\u2029']);
 // eslint-disable-next-line no-control-regex
-const NEWLINE_REGEXP = /\r\n|[\n\r\x0b\x0c\x1c\x1d\x1e\x85\u2028\u2029]/g;
+const NEWLINE_REGEXP = /\r\n|[\n\r]/g;
+// const NEWLINE_REGEXP = /\r\n|[\n\r\x0b\x0c\x1c\x1d\x1e\x85\u2028\u2029]/g;
 async function parseServerSentEvent(stream, onMessage) {
     const decoder = new SSEDecoder();
     await getBytes(stream, (chunk) => {

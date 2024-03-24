@@ -12,7 +12,7 @@ export async function parseServerSentEvent(stream: ReadableStream<Uint8Array>, o
 
   await getBytes(stream, (chunk: Uint8Array) => {
     const lineDecoder = new LineDecoder();
-    // raw string lines
+    // get string lines, newline-separated should be \n,\r,\r\n
     const lines = lineDecoder.decode(chunk);
 
     for (const line of lines) {

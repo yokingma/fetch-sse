@@ -1,23 +1,33 @@
 import { LineDecoder } from '../src/sse';
 import { checkOk } from '../src/utils';
 
-describe('SSEDecoder', () => {  
-  test('should decode data-only messages', () => {
-    const decoder = new LineDecoder();
-    const raw = '{"username": "bobby", "time": "02:33:46"}';
-    const line = `data: ${raw}`;
-    const buf = Buffer.from(`${line}\n\n`, 'utf-8');
-    const data = decoder.decode(buf);
-    expect(data).toEqual([line, '', '']);
+function decodeChunks(chunks: string[]) {
+  const decoder = new LineDecoder();
+  const lines: string[] = [];
+  for (const chunk of chunks) {
+    lines.push(...decoder.decode(chunk));
+  }
+  for (const line of decoder.flush()) {
+    lines.push(line);
+  }
+  return lines;
+}
+
+describe('SSEDecoder', () => {
+  test('basic \n', () => {
+    expect(decodeChunks(['foo', ' bar\nbaz'])).toEqual(['foo bar', 'baz']);
   });
 
-  test('should decode named events', () => {
-    const decoder = new LineDecoder();
-    const raw = '{"username": "bobby", "time": "02:33:48"}';
-    const lines = `:HTTP 1.1\nid: 1\nevent: result\ndata: ${raw}`;
-    const buf = Buffer.from(`${lines}\n\n`, 'utf-8');
-    const data = decoder.decode(buf);
-    expect(data).toEqual([':HTTP 1.1', 'id: 1', 'event: result', `data: ${raw}`, '', '']);
+  test('basic with \r\n', () => {
+    expect(decodeChunks(['foo', ' bar\r\nbaz'])).toEqual(['foo bar', 'baz']);
+  });
+
+  test('should escape new lines', () => {
+    expect(decodeChunks(['foo \\nbaz'])).toEqual(['foo \\nbaz']);
+  });
+  
+  test('should escape new lines with \\r', () => {
+    expect(decodeChunks(['foo\\n \\rbaz'])).toEqual(['foo\\n \\rbaz']);
   });
 
   test('should catch JSON.parse error of response', async () => {

@@ -63,7 +63,7 @@ export interface ServerSentEvent {
 }
 ```
 
-# Event stream format
+# Event stream pattern
 The event stream is a simple stream of text data that encoded using UTF-8. You can find more information [here](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events).
 
 * **Data-only messages**

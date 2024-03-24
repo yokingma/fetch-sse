@@ -18,16 +18,24 @@ describe('SSEDecoder', () => {
     expect(decodeChunks(['foo', ' bar\nbaz'])).toEqual(['foo bar', 'baz']);
   });
 
+  test('basic with \r', () => {
+    expect(decodeChunks(['foo', ' bar\rbaz'])).toEqual(['foo bar', 'baz']);
+  });
+
   test('basic with \r\n', () => {
     expect(decodeChunks(['foo', ' bar\r\nbaz'])).toEqual(['foo bar', 'baz']);
   });
 
-  test('should escape new lines', () => {
+  test('should escape new lines \\n', () => {
     expect(decodeChunks(['foo \\nbaz'])).toEqual(['foo \\nbaz']);
   });
   
   test('should escape new lines with \\r', () => {
     expect(decodeChunks(['foo\\n \\rbaz'])).toEqual(['foo\\n \\rbaz']);
+  });
+
+  test('should escape new lines with \\r\\n', () => {
+    expect(decodeChunks(['foo\\r\\nbaz'])).toEqual(['foo\\r\\nbaz']);
   });
 
   test('should catch JSON.parse error of response', async () => {

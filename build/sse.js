@@ -9,7 +9,7 @@ async function parseServerSentEvent(stream, onMessage) {
     const decoder = new SSEDecoder();
     await getBytes(stream, (chunk) => {
         const lineDecoder = new LineDecoder();
-        // raw string lines
+        // get string lines, newline-separated should be \n,\r,\r\n
         const lines = lineDecoder.decode(chunk);
         for (const line of lines) {
             const sseData = decoder.decode(line);

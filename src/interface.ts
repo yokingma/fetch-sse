@@ -1,4 +1,4 @@
-export type Bytes = string | ArrayBuffer | Uint8Array | Buffer | null | undefined;
+export type Bytes = ArrayBuffer | Uint8Array | Buffer;
 
 export interface ServerSentEvent {
   event: string | null;
@@ -20,5 +20,5 @@ export interface IFetchOptions {
 
 export interface LinesResult {
   fieldLength: number;
-  message: string;
+  line: Uint8Array;
 }

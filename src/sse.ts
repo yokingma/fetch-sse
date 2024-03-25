@@ -14,7 +14,7 @@ export async function parseServerSentEvent(stream: ReadableStream<Uint8Array>, o
     // get string lines, newline-separated should be \n,\r,\r\n
     const list = lineDecoder.getLines(chunk);
     for (const data of list) {
-      const source = decoder.decode(data.message);
+      const source = decoder.decode(data.line, data.fieldLength);
       if (source) onMessage(source);
     }
   });
@@ -83,7 +83,8 @@ export class LineDecoder {
         case NewLineChars.Colon:
           if (this.fieldLength === -1) this.fieldLength = this.position - lineStart;
           break;
-        // this case ('\r') should fallthrough to NewLine '\n'
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore - this case ('\r') should fallthrough to NewLine '\n'
         case NewLineChars.CarriageReturn:
           this.trailingNewLine = true;
         // eslint-disable-next-line no-fallthrough
@@ -101,8 +102,7 @@ export class LineDecoder {
       // got the data
       resultBuf = this.buffer.subarray(lineStart, lineEnd);
       resultFieldLength = this.fieldLength;
-      const message = this.decodeText(resultBuf);
-      list.push({ fieldLength: resultFieldLength, message });
+      list.push({ fieldLength: resultFieldLength, line: resultBuf });
       lineStart = this.position;
       this.fieldLength = -1;
     }
@@ -117,11 +117,56 @@ export class LineDecoder {
     
     return list;
   }
+}
 
-  decodeText(bytes: Bytes): string {
-    if (bytes == null) return '';
-    if (typeof bytes === 'string') return bytes;
+/**
+ * decode string lines to ServerSentEvent
+ */
+export class SSEDecoder {
+  private data: string[];
+  private event: string | null;
+  private chunks: string[];
 
+  constructor() {
+    this.event = null;
+    this.data = [];
+    this.chunks = [];
+  }
+
+
+  public decode(line: Uint8Array, filedLength: number) {
+    if (line.length === 0) {
+      // empty line denotes end of message. return event data and start a new message:
+      const sse: ServerSentEvent = {
+        event: this.event,
+        data: this.data.join('\n'),
+        raw: this.chunks,
+      };
+
+      // new message
+      this.event = null;
+      this.data = [];
+      this.chunks = [];
+
+      return sse;
+    } else if (filedLength > 0) {
+      // line is of format "<field>:<value>" or "<field>: <value>"
+      const field = this.decodeText(line.subarray(0, filedLength));
+      const valueOffset = filedLength + (line[filedLength + 1] === NewLineChars.Space ? 2 : 1);
+      const value = this.decodeText(line.subarray(valueOffset));
+
+      switch (field) {
+      case 'event':
+        this.event = value;
+        break;
+      case 'data':
+        this.data.push(value);
+        break;
+      }
+    }
+  }
+
+  private decodeText(bytes: Bytes): string {
     // Node:
     if (typeof Buffer !== 'undefined') {
       if (bytes instanceof Buffer) {
@@ -154,70 +199,4 @@ export class LineDecoder {
       'Unexpected: neither Buffer nor TextDecoder are available as globals. Please report this error.',
     );
   }
-}
-
-/**
- * decode string lines to ServerSentEvent
- */
-export class SSEDecoder {
-  private data: string[];
-  private event: string | null;
-  private chunks: string[];
-
-  constructor() {
-    this.event = null;
-    this.data = [];
-    this.chunks = [];
-  }
-
-
-  public decode(line: string) {
-    if (line.endsWith('\r')) {
-      line = line.substring(0, line.length - 1);
-    }
-    if (!line) {
-      // empty line and we didn't previously encounter any messages
-      if (!this.event && !this.data.length) return null;
-
-      const sse: ServerSentEvent = {
-        event: this.event,
-        data: this.data.join('\n'),
-        raw: this.chunks,
-      };
-
-      this.event = null;
-      this.data = [];
-      this.chunks = [];
-
-      return sse;
-    }
-
-    this.chunks.push(line);
-
-    if (line.startsWith(':')) {
-      return null;
-    }
-    // line is of format "<field>:<value>" or "<field>: <value>"
-    const [fieldName, , value] = partition(line, ':');
-    let str = value;
-    if (value.startsWith(' ')) {
-      str = value.substring(1);
-    }
-
-    if (fieldName === 'event') {
-      this.event = str;
-    } else if (fieldName === 'data') {
-      this.data.push(str);
-    }
-    return null;
-  }
-}
-
-function partition(str: string, delimiter: string): [string, string, string] {
-  const index = str.indexOf(delimiter);
-  if (index !== -1) {
-    return [str.substring(0, index), delimiter, str.substring(index + delimiter.length)];
-  }
-
-  return [str, '', ''];
 }

@@ -55,11 +55,6 @@ describe('SSEDecoder', () => {
     expect(list[0]).toEqual({ message: 'id:1', fieldLength: 2 });
     expect(list[1]).toEqual({ message: 'data: 1234', fieldLength: 4 });
   });
-  
-  test('single line split across multiple arrays', () => {
-    const list = parseMultiple(['id: 1', '23', '456\n']);
-    expect(list[0]).toEqual({ message: 'id: 123456', fieldLength: 2 });
-  });
 
   test('multiple lines split across multiple arrays', () => {
     const list = parseMultiple(['id: 1', '23\nda', 'ta: 456\n']);
@@ -69,6 +64,11 @@ describe('SSEDecoder', () => {
 
   test('comment line', () => {
     expect(parseString(': 123\n')).toEqual([{ message: ': 123', fieldLength: 0 }]);
+  });
+
+  test('single line split across multiple arrays', () => {
+    const list = parseMultiple(['id: 1', '23', '456\n']);
+    expect(list[0]).toEqual({ message: 'id: 123456', fieldLength: 2 });
   });
 
   test('line with multiple colons', () => {

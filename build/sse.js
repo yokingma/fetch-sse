@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SSEDecoder = exports.LineDecoder = exports.parseServerSentEvent = exports.NewLineChars = void 0;
+exports.LineDecoder = exports.MessageDecoder = exports.parseServerSentEvent = exports.NewLineChars = void 0;
 exports.NewLineChars = {
     NewLine: 10,
     CarriageReturn: 13,
@@ -8,9 +8,9 @@ exports.NewLineChars = {
     Colon: 58
 };
 async function parseServerSentEvent(stream, onMessage) {
-    const decoder = new SSEDecoder();
+    const lineDecoder = new LineDecoder();
     await getBytes(stream, (chunk) => {
-        const lineDecoder = new LineDecoder();
+        const decoder = new MessageDecoder();
         // get string lines, newline-separated should be \n,\r,\r\n
         const list = lineDecoder.getLines(chunk);
         for (const data of list) {
@@ -33,6 +33,68 @@ async function getBytes(stream, onChunk) {
         onChunk(value);
     }
 }
+/**
+ * decode string lines to ServerSentEvent
+ */
+class MessageDecoder {
+    constructor() {
+        this.event = null;
+        this.data = [];
+        this.chunks = [];
+    }
+    decode(line, filedLength) {
+        if (line.length === 0) {
+            // empty line denotes end of message. return event data and start a new message:
+            const sse = {
+                event: this.event,
+                data: this.data.join('\n'),
+                raw: this.chunks,
+            };
+            // new message
+            this.event = null;
+            this.data = [];
+            this.chunks = [];
+            return sse;
+        }
+        else if (filedLength > 0) {
+            // line is of format "<field>:<value>" or "<field>: <value>"
+            const field = this.decodeText(line.subarray(0, filedLength));
+            const valueOffset = filedLength + (line[filedLength + 1] === exports.NewLineChars.Space ? 2 : 1);
+            const value = this.decodeText(line.subarray(valueOffset));
+            this.chunks.push(value);
+            switch (field) {
+                case 'event':
+                    this.event = value;
+                    break;
+                case 'data':
+                    this.data.push(value);
+                    break;
+            }
+        }
+    }
+    decodeText(bytes) {
+        // Node:
+        if (typeof Buffer !== 'undefined') {
+            if (bytes instanceof Buffer) {
+                return bytes.toString('utf-8');
+            }
+            if (bytes instanceof Uint8Array) {
+                return Buffer.from(bytes).toString('utf-8');
+            }
+            throw new Error(`Unexpected: received non-Uint8Array (${bytes.constructor.name}) stream chunk in an environment with a global "Buffer" defined, which this library assumes to be Node. Please report this error.`);
+        }
+        // Browser
+        if (typeof TextDecoder !== 'undefined') {
+            if (bytes instanceof Uint8Array || bytes instanceof ArrayBuffer) {
+                const decoder = new TextDecoder('utf8');
+                return decoder.decode(bytes);
+            }
+            throw new Error(`Unexpected: received non-Uint8Array/ArrayBuffer (${bytes.constructor.name}) in a web platform. Please report this error.`);
+        }
+        throw new Error('Unexpected: neither Buffer nor TextDecoder are available as globals. Please report this error.');
+    }
+}
+exports.MessageDecoder = MessageDecoder;
 /**
  * Parses any byte chunks into EventSource line buffers.
  */
@@ -108,64 +170,3 @@ class LineDecoder {
     }
 }
 exports.LineDecoder = LineDecoder;
-/**
- * decode string lines to ServerSentEvent
- */
-class SSEDecoder {
-    constructor() {
-        this.event = null;
-        this.data = [];
-        this.chunks = [];
-    }
-    decode(line, filedLength) {
-        if (line.length === 0) {
-            // empty line denotes end of message. return event data and start a new message:
-            const sse = {
-                event: this.event,
-                data: this.data.join('\n'),
-                raw: this.chunks,
-            };
-            // new message
-            this.event = null;
-            this.data = [];
-            this.chunks = [];
-            return sse;
-        }
-        else if (filedLength > 0) {
-            // line is of format "<field>:<value>" or "<field>: <value>"
-            const field = this.decodeText(line.subarray(0, filedLength));
-            const valueOffset = filedLength + (line[filedLength + 1] === exports.NewLineChars.Space ? 2 : 1);
-            const value = this.decodeText(line.subarray(valueOffset));
-            switch (field) {
-                case 'event':
-                    this.event = value;
-                    break;
-                case 'data':
-                    this.data.push(value);
-                    break;
-            }
-        }
-    }
-    decodeText(bytes) {
-        // Node:
-        if (typeof Buffer !== 'undefined') {
-            if (bytes instanceof Buffer) {
-                return bytes.toString('utf-8');
-            }
-            if (bytes instanceof Uint8Array) {
-                return Buffer.from(bytes).toString('utf-8');
-            }
-            throw new Error(`Unexpected: received non-Uint8Array (${bytes.constructor.name}) stream chunk in an environment with a global "Buffer" defined, which this library assumes to be Node. Please report this error.`);
-        }
-        // Browser
-        if (typeof TextDecoder !== 'undefined') {
-            if (bytes instanceof Uint8Array || bytes instanceof ArrayBuffer) {
-                const decoder = new TextDecoder('utf8');
-                return decoder.decode(bytes);
-            }
-            throw new Error(`Unexpected: received non-Uint8Array/ArrayBuffer (${bytes.constructor.name}) in a web platform. Please report this error.`);
-        }
-        throw new Error('Unexpected: neither Buffer nor TextDecoder are available as globals. Please report this error.');
-    }
-}
-exports.SSEDecoder = SSEDecoder;

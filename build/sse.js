@@ -1,35 +1,28 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SSEDecoder = exports.LineDecoder = exports.getBytes = exports.parseServerSentEvent = void 0;
-// prettier-ignore
-const NEWLINE_CHARS = new Set(['\n', '\r', '\x0b', '\x0c', '\x1c', '\x1d', '\x1e', '\x85', '\u2028', '\u2029']);
-// eslint-disable-next-line no-control-regex
-const NEWLINE_REGEXP = /\r\n|[\n\r\x0b\x0c\x1c\x1d\x1e\x85\u2028\u2029]/g;
+exports.SSEDecoder = exports.LineDecoder = exports.parseServerSentEvent = exports.NewLineChars = void 0;
+exports.NewLineChars = {
+    NewLine: 10,
+    CarriageReturn: 13,
+    Space: 12,
+    Colon: 58
+};
 async function parseServerSentEvent(stream, onMessage) {
     const decoder = new SSEDecoder();
     await getBytes(stream, (chunk) => {
         const lineDecoder = new LineDecoder();
         // get string lines, newline-separated should be \n,\r,\r\n
-        const lines = lineDecoder.decode(chunk);
-        for (const line of lines) {
-            const sseData = decoder.decode(line);
-            if (sseData) {
-                onMessage(sseData);
-            }
-        }
-        for (const line of lineDecoder.flush()) {
-            const sseData = decoder.decode(line);
-            if (sseData)
-                onMessage(sseData);
+        const list = lineDecoder.getLines(chunk);
+        for (const data of list) {
+            const source = decoder.decode(data.line, data.fieldLength);
+            if (source)
+                onMessage(source);
         }
     });
 }
 exports.parseServerSentEvent = parseServerSentEvent;
 /**
  * Converts a ReadableStream into a callback pattern.
- * @param stream The input ReadableStream.
- * @param onChunk A function that will be called on each new byte chunk in the stream.
- * @returns A promise that will be resolved when the stream closes.
  */
 async function getBytes(stream, onChunk) {
     const reader = stream.getReader();
@@ -40,54 +33,120 @@ async function getBytes(stream, onChunk) {
         onChunk(value);
     }
 }
-exports.getBytes = getBytes;
 /**
- * from openai sdk.
- * A re-implementation of http[s]'s `LineDecoder` that handles incrementally
- * reading lines from text.
- *
- * https://github.com/encode/httpx/blob/920333ea98118e9cf617f246905d7b202510941c/httpx/_decoders.py#L258
+ * Parses any byte chunks into EventSource line buffers.
  */
 class LineDecoder {
     constructor() {
-        this.buffer = [];
-        this.trailingCR = false;
+        this.position = 0;
+        this.fieldLength = -1;
+        this.buffer = undefined;
+        this.trailingNewLine = false;
     }
-    decode(chunk) {
-        let text = this.decodeText(chunk);
-        // end with Carriage Return
-        if (this.trailingCR) {
-            text = '\r' + text;
-            this.trailingCR = false;
+    getLines(chunk) {
+        if (this.buffer === undefined) {
+            this.buffer = chunk;
+            this.position = 0;
+            this.fieldLength = -1;
         }
-        if (text.endsWith('\r')) {
-            this.trailingCR = true;
-            text = text.slice(0, -1);
+        else {
+            const buffer = new Uint8Array(this.buffer.length + chunk.length);
+            buffer.set(this.buffer);
+            buffer.set(chunk, this.buffer.length);
+            this.buffer = buffer;
         }
-        if (!text) {
-            return [];
+        const { buffer } = this;
+        const bufLength = this.buffer.length;
+        let lineStart = 0;
+        let resultBuf = new Uint8Array();
+        let resultFieldLength = -1;
+        const list = [];
+        while (this.position < bufLength) {
+            // check new line char, if checked, skip to next char
+            if (this.trailingNewLine) {
+                if (buffer[this.position] === exports.NewLineChars.NewLine) {
+                    lineStart = ++this.position;
+                }
+                this.trailingNewLine = false;
+            }
+            let lineEnd = -1;
+            for (; this.position < bufLength && lineEnd === -1; ++this.position) {
+                switch (buffer[this.position]) {
+                    case exports.NewLineChars.Colon:
+                        if (this.fieldLength === -1)
+                            this.fieldLength = this.position - lineStart;
+                        break;
+                    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                    // @ts-ignore - this case ('\r') should fallthrough to NewLine '\n'
+                    case exports.NewLineChars.CarriageReturn:
+                        this.trailingNewLine = true;
+                    // eslint-disable-next-line no-fallthrough
+                    case exports.NewLineChars.NewLine:
+                        lineEnd = this.position;
+                        break;
+                }
+            }
+            if (lineEnd === -1) {
+                // the line has not ended, so we need to the next line and continue parsing.
+                break;
+            }
+            // got the data
+            resultBuf = this.buffer.subarray(lineStart, lineEnd);
+            resultFieldLength = this.fieldLength;
+            list.push({ fieldLength: resultFieldLength, line: resultBuf });
+            lineStart = this.position;
+            this.fieldLength = -1;
         }
-        const trailingNewline = NEWLINE_CHARS.has(text[text.length - 1] || '');
-        let lines = text.split(NEWLINE_REGEXP);
-        if (lines.length === 1 && !trailingNewline) {
-            this.buffer.push(lines[0]);
-            return [];
+        if (lineStart === bufLength) {
+            this.buffer = undefined;
         }
-        if (this.buffer.length > 0) {
-            lines = [this.buffer.join('') + lines[0], ...lines.slice(1)];
-            this.buffer = [];
+        else if (lineStart !== 0) {
+            this.buffer = this.buffer.subarray(lineStart);
+            this.position -= lineStart;
         }
-        if (!trailingNewline) {
-            this.buffer = [lines.pop() || ''];
+        return list;
+    }
+}
+exports.LineDecoder = LineDecoder;
+/**
+ * decode string lines to ServerSentEvent
+ */
+class SSEDecoder {
+    constructor() {
+        this.event = null;
+        this.data = [];
+        this.chunks = [];
+    }
+    decode(line, filedLength) {
+        if (line.length === 0) {
+            // empty line denotes end of message. return event data and start a new message:
+            const sse = {
+                event: this.event,
+                data: this.data.join('\n'),
+                raw: this.chunks,
+            };
+            // new message
+            this.event = null;
+            this.data = [];
+            this.chunks = [];
+            return sse;
         }
-        return lines;
+        else if (filedLength > 0) {
+            // line is of format "<field>:<value>" or "<field>: <value>"
+            const field = this.decodeText(line.subarray(0, filedLength));
+            const valueOffset = filedLength + (line[filedLength + 1] === exports.NewLineChars.Space ? 2 : 1);
+            const value = this.decodeText(line.subarray(valueOffset));
+            switch (field) {
+                case 'event':
+                    this.event = value;
+                    break;
+                case 'data':
+                    this.data.push(value);
+                    break;
+            }
+        }
     }
     decodeText(bytes) {
-        var _a;
-        if (bytes == null)
-            return '';
-        if (typeof bytes === 'string')
-            return bytes;
         // Node:
         if (typeof Buffer !== 'undefined') {
             if (bytes instanceof Buffer) {
@@ -101,74 +160,12 @@ class LineDecoder {
         // Browser
         if (typeof TextDecoder !== 'undefined') {
             if (bytes instanceof Uint8Array || bytes instanceof ArrayBuffer) {
-                (_a = this.textDecoder) !== null && _a !== void 0 ? _a : (this.textDecoder = new TextDecoder('utf8'));
-                return this.textDecoder.decode(bytes);
+                const decoder = new TextDecoder('utf8');
+                return decoder.decode(bytes);
             }
             throw new Error(`Unexpected: received non-Uint8Array/ArrayBuffer (${bytes.constructor.name}) in a web platform. Please report this error.`);
         }
         throw new Error('Unexpected: neither Buffer nor TextDecoder are available as globals. Please report this error.');
     }
-    flush() {
-        if (!this.buffer.length && !this.trailingCR) {
-            return [];
-        }
-        const lines = [this.buffer.join('')];
-        this.buffer = [];
-        this.trailingCR = false;
-        return lines;
-    }
-}
-exports.LineDecoder = LineDecoder;
-/**
- * decode string lines to ServerSentEvent
- */
-class SSEDecoder {
-    constructor() {
-        this.event = null;
-        this.data = [];
-        this.chunks = [];
-    }
-    decode(line) {
-        if (line.endsWith('\r')) {
-            line = line.substring(0, line.length - 1);
-        }
-        if (!line) {
-            // empty line and we didn't previously encounter any messages
-            if (!this.event && !this.data.length)
-                return null;
-            const sse = {
-                event: this.event,
-                data: this.data.join('\n'),
-                raw: this.chunks,
-            };
-            this.event = null;
-            this.data = [];
-            this.chunks = [];
-            return sse;
-        }
-        this.chunks.push(line);
-        if (line.startsWith(':')) {
-            return null;
-        }
-        const [fieldName, , value] = partition(line, ':');
-        let str = value;
-        if (value.startsWith(' ')) {
-            str = value.substring(1);
-        }
-        if (fieldName === 'event') {
-            this.event = str;
-        }
-        else if (fieldName === 'data') {
-            this.data.push(str);
-        }
-        return null;
-    }
 }
 exports.SSEDecoder = SSEDecoder;
-function partition(str, delimiter) {
-    const index = str.indexOf(delimiter);
-    if (index !== -1) {
-        return [str.substring(0, index), delimiter, str.substring(index + delimiter.length)];
-    }
-    return [str, '', ''];
-}

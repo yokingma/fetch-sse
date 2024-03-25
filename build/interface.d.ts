@@ -1,5 +1,5 @@
 /// <reference types="node" />
-export type Bytes = string | ArrayBuffer | Uint8Array | Buffer | null | undefined;
+export type Bytes = ArrayBuffer | Uint8Array | Buffer;
 export interface ServerSentEvent {
     event: string | null;
     data: string;
@@ -14,4 +14,8 @@ export interface IFetchOptions {
     onOpen?: (res?: Response) => void;
     onClose?: () => void;
     onError?: (error: any) => void;
+}
+export interface LinesResult {
+    fieldLength: number;
+    line: Uint8Array;
 }

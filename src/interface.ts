@@ -16,3 +16,9 @@ export interface IFetchOptions {
   onClose?: () => void;
   onError?: (error: any) => void;
 }
+
+
+export interface LinesResult {
+  fieldLength: number;
+  message: string;
+}

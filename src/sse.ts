@@ -1,39 +1,29 @@
-import { Bytes, ServerSentEvent } from './interface';
+import { Bytes, ServerSentEvent, LinesResult } from './interface';
 
-// prettier-ignore
-const NEWLINE_CHARS = new Set(['\n', '\r', '\x0b', '\x0c', '\x1c', '\x1d', '\x1e', '\x85', '\u2028', '\u2029']);
-// eslint-disable-next-line no-control-regex
-const NEWLINE_REGEXP = /\r\n|[\n\r\x0b\x0c\x1c\x1d\x1e\x85\u2028\u2029]/g;
+export const NewLineChars = {
+  NewLine: 10,
+  CarriageReturn: 13,
+  Space: 12,
+  Colon: 58
+};
 
 export async function parseServerSentEvent(stream: ReadableStream<Uint8Array>, onMessage: (event: ServerSentEvent) => void) {
   const decoder = new SSEDecoder();
-
   await getBytes(stream, (chunk: Uint8Array) => {
     const lineDecoder = new LineDecoder();
     // get string lines, newline-separated should be \n,\r,\r\n
-    const lines = lineDecoder.decode(chunk);
-
-    for (const line of lines) {
-      const sseData = decoder.decode(line);
-      if (sseData) {
-        onMessage(sseData);
-      }
-    }
-  
-    for (const line of lineDecoder.flush()) {
-      const sseData = decoder.decode(line);
-      if (sseData) onMessage(sseData);
+    const list = lineDecoder.getLines(chunk);
+    for (const data of list) {
+      const source = decoder.decode(data.message);
+      if (source) onMessage(source);
     }
   });
 }
 
 /**
  * Converts a ReadableStream into a callback pattern.
- * @param stream The input ReadableStream.
- * @param onChunk A function that will be called on each new byte chunk in the stream.
- * @returns A promise that will be resolved when the stream closes.
  */
-export async function getBytes(stream: ReadableStream<Uint8Array>, onChunk: (arr: Uint8Array) => void) {
+async function getBytes(stream: ReadableStream<Uint8Array>, onChunk: (arr: Uint8Array) => void) {
   const reader = stream.getReader();
   while (true) {
     const { done, value } = await reader.read();
@@ -43,58 +33,89 @@ export async function getBytes(stream: ReadableStream<Uint8Array>, onChunk: (arr
 }
 
 /**
- * from openai sdk.
- * A re-implementation of http[s]'s `LineDecoder` that handles incrementally
- * reading lines from text.
- *
- * https://github.com/encode/httpx/blob/920333ea98118e9cf617f246905d7b202510941c/httpx/_decoders.py#L258
+ * Parses any byte chunks into EventSource line buffers.
  */
 export class LineDecoder {
-  buffer: string[];
-  trailingCR: boolean;
-  // TextDecoder found in browsers; not typed to avoid pulling in either "dom" or "node" types.
-  textDecoder: any;
+  private buffer: Uint8Array | undefined;
+  private position: number;
+  private fieldLength: number;
+  private trailingNewLine: boolean;
 
   constructor() {
-    this.buffer = [];
-    this.trailingCR = false;
+    this.position = 0;
+    this.fieldLength = -1;
+    this.buffer = undefined;
+    this.trailingNewLine = false;
   }
 
-  decode(chunk: Bytes): string[] {
-    let text = this.decodeText(chunk);
-
-    // end with Carriage Return
-    if (this.trailingCR) {
-      text = '\r' + text;
-      this.trailingCR = false;
-    }
-    if (text.endsWith('\r')) {
-      this.trailingCR = true;
-      text = text.slice(0, -1);
-    }
-
-    if (!text) {
-      return [];
+  getLines(chunk: Uint8Array): LinesResult[] {
+    if (this.buffer === undefined) {
+      this.buffer = chunk;
+      this.position = 0;
+      this.fieldLength = -1;
+    } else {
+      const buffer = new Uint8Array(this.buffer.length + chunk.length);
+      buffer.set(this.buffer);
+      buffer.set(chunk, this.buffer.length);
+      this.buffer = buffer;
     }
 
-    const trailingNewline = NEWLINE_CHARS.has(text[text.length - 1] || '');
-    let lines = text.split(NEWLINE_REGEXP);
+    const { buffer } = this;
 
-    if (lines.length === 1 && !trailingNewline) {
-      this.buffer.push(lines[0]!);
-      return [];
+    const bufLength = this.buffer.length;
+    let lineStart = 0;
+    let resultBuf: Uint8Array = new Uint8Array();
+    let resultFieldLength = -1;
+    const list: LinesResult[] = [];
+    while (this.position < bufLength) {
+      // check new line char, if checked, skip to next char
+      if (this.trailingNewLine) {
+        if (buffer[this.position] === NewLineChars.NewLine) {
+          lineStart = ++this.position;
+        }
+
+        this.trailingNewLine = false;
+      }
+
+      let lineEnd = -1;
+      for (; this.position < bufLength && lineEnd === -1; ++this.position) {
+        switch (buffer[this.position]) {
+        case NewLineChars.Colon:
+          if (this.fieldLength === -1) this.fieldLength = this.position - lineStart;
+          break;
+        // this case ('\r') should fallthrough to NewLine '\n'
+        case NewLineChars.CarriageReturn:
+          this.trailingNewLine = true;
+        // eslint-disable-next-line no-fallthrough
+        case NewLineChars.NewLine:
+          lineEnd = this.position;
+          break;
+        }
+      }
+
+      if (lineEnd === -1) {
+        // the line has not ended, so we need to the next line and continue parsing.
+        break;
+      }
+
+      // got the data
+      resultBuf = this.buffer.subarray(lineStart, lineEnd);
+      resultFieldLength = this.fieldLength;
+      const message = this.decodeText(resultBuf);
+      list.push({ fieldLength: resultFieldLength, message });
+      lineStart = this.position;
+      this.fieldLength = -1;
     }
 
-    if (this.buffer.length > 0) {
-      lines = [this.buffer.join('') + lines[0], ...lines.slice(1)];
-      this.buffer = [];
+    if (lineStart === bufLength) {
+      this.buffer = undefined;
+    } else if (lineStart !== 0) {
+      this.buffer = this.buffer.subarray(lineStart);
+      this.position -= lineStart;
     }
 
-    if (!trailingNewline) {
-      this.buffer = [lines.pop() || ''];
-    }
-
-    return lines;
+    
+    return list;
   }
 
   decodeText(bytes: Bytes): string {
@@ -118,8 +139,8 @@ export class LineDecoder {
     // Browser
     if (typeof TextDecoder !== 'undefined') {
       if (bytes instanceof Uint8Array || bytes instanceof ArrayBuffer) {
-        this.textDecoder ??= new TextDecoder('utf8');
-        return this.textDecoder.decode(bytes);
+        const decoder = new TextDecoder('utf8');
+        return decoder.decode(bytes);
       }
 
       throw new Error(
@@ -132,17 +153,6 @@ export class LineDecoder {
     throw new Error(
       'Unexpected: neither Buffer nor TextDecoder are available as globals. Please report this error.',
     );
-  }
-
-  flush(): string[] {
-    if (!this.buffer.length && !this.trailingCR) {
-      return [];
-    }
-
-    const lines = [this.buffer.join('')];
-    this.buffer = [];
-    this.trailingCR = false;
-    return lines;
   }
 }
 
@@ -187,6 +197,7 @@ export class SSEDecoder {
     if (line.startsWith(':')) {
       return null;
     }
+    // line is of format "<field>:<value>" or "<field>: <value>"
     const [fieldName, , value] = partition(line, ':');
     let str = value;
     if (value.startsWith(' ')) {

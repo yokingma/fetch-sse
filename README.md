@@ -1,5 +1,7 @@
 # Fetch SSE (Server-Sent Events)
-This package provides an easy API for making Event Source requests with all the features of Fetch API, and supports browsers and nodejs.
+This package provides an easy API for making Event Source requests with all the features of Fetch API, and supports browsers and Node.js.
+
+> For Node.js, v18.0.0 or higher required.
 
 # Install
 ```
@@ -50,7 +52,7 @@ export interface IFetchOptions {
   data?: Record<string, any>;
   signal?: AbortSignal;
   onMessage?: (event: ServerSentEvent | null, done?: boolean) => void;
-  onOpen?: () => void;
+  onOpen?: (res?: Response) => void;
   onClose?: () => void;
   onError?: (error: any) => void;
 }

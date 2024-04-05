@@ -8,9 +8,10 @@ export const NewLineChars = {
 };
 
 export async function parseServerSentEvent(stream: ReadableStream<Uint8Array>, onMessage: (event: ServerSentEvent) => void) {
-  const decoder = new SSEDecoder();
+  const lineDecoder = new LineDecoder();
+
   await getBytes(stream, (chunk: Uint8Array) => {
-    const lineDecoder = new LineDecoder();
+    const decoder = new MessageDecoder();
     // get string lines, newline-separated should be \n,\r,\r\n
     const list = lineDecoder.getLines(chunk);
     for (const data of list) {
@@ -29,6 +30,89 @@ async function getBytes(stream: ReadableStream<Uint8Array>, onChunk: (arr: Uint8
     const { done, value } = await reader.read();
     if (done) break;
     onChunk(value);
+  }
+}
+
+/**
+ * decode string lines to ServerSentEvent
+ */
+export class MessageDecoder {
+  private data: string[];
+  private event: string | null;
+  private chunks: string[];
+
+  constructor() {
+    this.event = null;
+    this.data = [];
+    this.chunks = [];
+  }
+
+
+  public decode(line: Uint8Array, filedLength: number) {
+    if (line.length === 0) {
+      // empty line denotes end of message. return event data and start a new message:
+      const sse: ServerSentEvent = {
+        event: this.event,
+        data: this.data.join('\n'),
+        raw: this.chunks,
+      };
+
+      // new message
+      this.event = null;
+      this.data = [];
+      this.chunks = [];
+
+      return sse;
+    } else if (filedLength > 0) {
+      // line is of format "<field>:<value>" or "<field>: <value>"
+      const field = this.decodeText(line.subarray(0, filedLength));
+      const valueOffset = filedLength + (line[filedLength + 1] === NewLineChars.Space ? 2 : 1);
+      const value = this.decodeText(line.subarray(valueOffset));
+
+      this.chunks.push(value);
+      switch (field) {
+      case 'event':
+        this.event = value;
+        break;
+      case 'data':
+        this.data.push(value);
+        break;
+      }
+    }
+  }
+
+  private decodeText(bytes: Bytes): string {
+    // Node:
+    if (typeof Buffer !== 'undefined') {
+      if (bytes instanceof Buffer) {
+        return bytes.toString('utf-8');
+      }
+      if (bytes instanceof Uint8Array) {
+        return Buffer.from(bytes).toString('utf-8');
+      }
+
+      throw new Error(
+        `Unexpected: received non-Uint8Array (${bytes.constructor.name}) stream chunk in an environment with a global "Buffer" defined, which this library assumes to be Node. Please report this error.`,
+      );
+    }
+
+    // Browser
+    if (typeof TextDecoder !== 'undefined') {
+      if (bytes instanceof Uint8Array || bytes instanceof ArrayBuffer) {
+        const decoder = new TextDecoder('utf8');
+        return decoder.decode(bytes);
+      }
+
+      throw new Error(
+        `Unexpected: received non-Uint8Array/ArrayBuffer (${
+          (bytes as any).constructor.name
+        }) in a web platform. Please report this error.`,
+      );
+    }
+
+    throw new Error(
+      'Unexpected: neither Buffer nor TextDecoder are available as globals. Please report this error.',
+    );
   }
 }
 
@@ -116,87 +200,5 @@ export class LineDecoder {
 
     
     return list;
-  }
-}
-
-/**
- * decode string lines to ServerSentEvent
- */
-export class SSEDecoder {
-  private data: string[];
-  private event: string | null;
-  private chunks: string[];
-
-  constructor() {
-    this.event = null;
-    this.data = [];
-    this.chunks = [];
-  }
-
-
-  public decode(line: Uint8Array, filedLength: number) {
-    if (line.length === 0) {
-      // empty line denotes end of message. return event data and start a new message:
-      const sse: ServerSentEvent = {
-        event: this.event,
-        data: this.data.join('\n'),
-        raw: this.chunks,
-      };
-
-      // new message
-      this.event = null;
-      this.data = [];
-      this.chunks = [];
-
-      return sse;
-    } else if (filedLength > 0) {
-      // line is of format "<field>:<value>" or "<field>: <value>"
-      const field = this.decodeText(line.subarray(0, filedLength));
-      const valueOffset = filedLength + (line[filedLength + 1] === NewLineChars.Space ? 2 : 1);
-      const value = this.decodeText(line.subarray(valueOffset));
-
-      switch (field) {
-      case 'event':
-        this.event = value;
-        break;
-      case 'data':
-        this.data.push(value);
-        break;
-      }
-    }
-  }
-
-  private decodeText(bytes: Bytes): string {
-    // Node:
-    if (typeof Buffer !== 'undefined') {
-      if (bytes instanceof Buffer) {
-        return bytes.toString('utf-8');
-      }
-      if (bytes instanceof Uint8Array) {
-        return Buffer.from(bytes).toString('utf-8');
-      }
-
-      throw new Error(
-        `Unexpected: received non-Uint8Array (${bytes.constructor.name}) stream chunk in an environment with a global "Buffer" defined, which this library assumes to be Node. Please report this error.`,
-      );
-    }
-
-    // Browser
-    if (typeof TextDecoder !== 'undefined') {
-      if (bytes instanceof Uint8Array || bytes instanceof ArrayBuffer) {
-        const decoder = new TextDecoder('utf8');
-        return decoder.decode(bytes);
-      }
-
-      throw new Error(
-        `Unexpected: received non-Uint8Array/ArrayBuffer (${
-          (bytes as any).constructor.name
-        }) in a web platform. Please report this error.`,
-      );
-    }
-
-    throw new Error(
-      'Unexpected: neither Buffer nor TextDecoder are available as globals. Please report this error.',
-    );
   }
 }

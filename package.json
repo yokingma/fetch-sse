@@ -1,20 +1,8 @@
 {
   "name": "fetch-sse",
-  "version": "1.0.23",
-  "description": "An easy API for making Event Source requests, with all the features of fetch(), Supports browsers and nodejs.",
-  "main": "./build/index.js",
-  "types": "./build/index.d.ts",
-  "engines": {
-    "node": ">=18.0"
-  },
-  "scripts": {
-    "build": "tsc --project tsconfig.build.json --outDir build/",
-    "test": "jest"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/yokingma/fetch-sse.git"
-  },
+  "version": "1.0.24",
+  "type": "module",
+  "description": "An easy API for making Event Source requests, with all the features of fetch(), Supports browsers and node.",
   "keywords": [
     "SSE",
     "Server-Sent",
@@ -28,6 +16,43 @@
     "url": "https://github.com/yokingma/fetch-sse/issues"
   },
   "homepage": "https://github.com/yokingma/fetch-sse#readme",
+  "main": "./build/index.cjs",
+  "module": "./build/index.js",
+  "types": "./build/index.d.ts",
+  "files": [
+    "build/**"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "jest"
+  },
+  "tsup": {
+    "entry": [
+      "src/index.ts"
+    ],
+    "outDir": "build",
+    "format": [
+      "cjs",
+      "esm"
+    ],
+    "splitting": false,
+    "dts": true,
+    "clean": true,
+    "sourcemap": true
+  },
+  "exports": {
+    ".": {
+      "require": "./build/index.cjs",
+      "import": "./build/index.js"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yokingma/fetch-sse.git"
+  },
   "devDependencies": {
     "@jest/globals": "^29.7.0",
     "@tsconfig/recommended": "^1.0.3",
@@ -38,6 +63,7 @@
     "eslint": "^8.57.0",
     "jest": "^29.7.0",
     "ts-jest": "^29.1.2",
+    "tsup": "^8.3.5",
     "typescript": "^5.4.2",
     "typescript-eslint": "^7.1.1"
   }

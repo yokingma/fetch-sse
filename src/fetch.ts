@@ -3,7 +3,7 @@ import { parseServerSentEvent } from './sse';
 import { checkOk } from './utils';
 
 export async function fetchEventData(url: string, options: IFetchOptions = {}): Promise<void> {
-  const { method, data, headers = {}, signal, onMessage, onError, onOpen, onClose } = options;
+  const { method, data = null, headers = {}, signal, onMessage, onError, onOpen, onClose } = options;
   const defaultHeaders = {
     Accept: 'text/event-stream',
     'Content-Type': 'application/json'
@@ -12,11 +12,21 @@ export async function fetchEventData(url: string, options: IFetchOptions = {}): 
     ...defaultHeaders,
     ...headers
   };
+  let body: BodyInit | null = data;
+  if (
+    mergedHeaders['Content-Type'] === 'application/json' &&
+    typeof data !== 'string' &&
+    !(data instanceof FormData) &&
+    !(data instanceof URLSearchParams) &&
+    !(data instanceof Blob)
+  ) {
+    body = JSON.stringify(data);
+  }
   try {
     const res = await fetch(url, {
       method,
       headers: mergedHeaders,
-      body: JSON.stringify(data),
+      body,
       signal: signal
     });
     await checkOk(res);
@@ -28,7 +38,7 @@ export async function fetchEventData(url: string, options: IFetchOptions = {}): 
       });
       onClose?.();
     }
-  } catch (err) {
+  } catch (err: any) {
     onError?.(err);
   }
 }

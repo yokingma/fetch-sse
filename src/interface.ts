@@ -8,8 +8,8 @@ export interface ServerSentEvent {
 
 export interface IFetchOptions {
   method?: string;
-  headers?: HeadersInit | Record<string, any>;
-  data?: Record<string, any>;
+  headers?: Headers | Record<string, any>;
+  data?: BodyInit | null;
   signal?: AbortSignal;
   onMessage?: (event: ServerSentEvent | null, done?: boolean) => void;
   onOpen?: (res?: Response) => void;

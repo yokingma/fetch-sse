@@ -12,15 +12,11 @@ export async function fetchEventData(url: string, options: IFetchOptions = {}): 
     ...defaultHeaders,
     ...headers
   };
-  let body: BodyInit | null = data;
-  if (
-    mergedHeaders['Content-Type'] === 'application/json' &&
-    typeof data !== 'string' &&
-    !(data instanceof FormData) &&
-    !(data instanceof URLSearchParams) &&
-    !(data instanceof Blob)
-  ) {
-    body = JSON.stringify(data);
+  let body: BodyInit | null;
+  if (isPlainObject(data)) {
+    body = JSON.stringify(data as Record<string, any>);
+  } else {
+    body = data as (BodyInit | null);
   }
   try {
     const res = await fetch(url, {
@@ -41,4 +37,12 @@ export async function fetchEventData(url: string, options: IFetchOptions = {}): 
   } catch (err: any) {
     onError?.(err);
   }
+}
+
+function isPlainObject(obj: any): boolean {
+  if (obj === null || typeof obj !== 'object') {
+    return false;
+  }
+  const proto = Object.getPrototypeOf(obj);
+  return proto === Object.prototype || proto === null;
 }

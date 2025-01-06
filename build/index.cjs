@@ -209,9 +209,11 @@ async function fetchEventData(url, options = {}) {
     ...defaultHeaders,
     ...headers
   };
-  let body = data;
-  if (mergedHeaders["Content-Type"] === "application/json" && typeof data !== "string" && !(data instanceof FormData) && !(data instanceof URLSearchParams) && !(data instanceof Blob)) {
+  let body;
+  if (isPlainObject(data)) {
     body = JSON.stringify(data);
+  } else {
+    body = data;
   }
   try {
     const res = await fetch(url, {
@@ -231,6 +233,13 @@ async function fetchEventData(url, options = {}) {
   } catch (err) {
     onError?.(err);
   }
+}
+function isPlainObject(obj) {
+  if (obj === null || typeof obj !== "object") {
+    return false;
+  }
+  const proto = Object.getPrototypeOf(obj);
+  return proto === Object.prototype || proto === null;
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {

@@ -7,7 +7,7 @@ interface ServerSentEvent {
 interface IFetchOptions {
     method?: string;
     headers?: Headers | Record<string, any>;
-    data?: BodyInit | null;
+    data?: BodyInit | Record<string, any> | null;
     signal?: AbortSignal;
     onMessage?: (event: ServerSentEvent | null, done?: boolean) => void;
     onOpen?: (res?: Response) => void;

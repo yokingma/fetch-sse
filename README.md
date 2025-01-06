@@ -1,13 +1,16 @@
 # Fetch SSE (Server-Sent Events)
+
 This package provides an easy API for making Event Source requests with all the features of Fetch API, and supports browsers and Node.js.
 
 > For Node.js, v18.0.0 or higher required.
 
-# Install
-```
+## Install
+
+```sh
 npm install fetch-sse
 ```
-# Usage
+
+## Usage
 
 ```ts
 import { fetchEventData } from 'fetch-sse';
@@ -26,11 +29,13 @@ await fetchEventData('/api/sse', {
 ```
 
 You can pass in other parameters in a similar way to the Fetch API.
+
 ```ts
 import { fetchEventData } from 'fetch-sse';
 
 await fetchEventData('/api/sse', {
   method: 'POST',
+  // or JSON.stringify({ foo: 'bar' })
   data: { foo: 'bar' },
   headers: {
     'Content-Type': 'application/json',
@@ -46,10 +51,12 @@ await fetchEventData('/api/sse', {
 Interface
 
 ```ts
+
+// fetch options
 export interface IFetchOptions {
   method?: string;
   headers?: HeadersInit | Record<string, any>;
-  data?: Record<string, any>;
+  data?: BodyInit | Record<string, any> | null;
   signal?: AbortSignal;
   onMessage?: (event: ServerSentEvent | null, done?: boolean) => void;
   onOpen?: (res?: Response) => void;
@@ -65,17 +72,21 @@ export interface ServerSentEvent {
 }
 ```
 
-# Event stream pattern
+## Event stream pattern
+
 The event stream is a simple stream of text data that encoded using UTF-8. You can find more information [here](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events).
 
 * **Data-only messages**
 
 raw:
+
 ```text
 
 data: {"username": "bobby", "time": "02:33:48"}\n\n
 ```
+
 parsed:
+
 ```js
 {
   event: null,
@@ -85,9 +96,11 @@ parsed:
   ]
 }
 ```
+
 * **Named events**
 
 raw:
+
 ```text
 :HTTP\n
 id: 1\n
@@ -110,6 +123,6 @@ parsed:
 }
 ```
 
-# Compatibility
+## Compatibility
 
 this package is written in typescript and compatible with browsers and nodejs, You might need to [polyfill TextDecoder](https://www.npmjs.com/package/fast-text-encoding) for old versions of browsers.

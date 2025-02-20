@@ -3,7 +3,7 @@ import { Bytes, ServerSentEvent, LinesResult } from './interface';
 export const NewLineChars = {
   NewLine: 10,
   CarriageReturn: 13,
-  Space: 12,
+  Space: 32,
   Colon: 58
 };
 

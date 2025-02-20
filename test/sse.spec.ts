@@ -1,4 +1,4 @@
-import { LineDecoder } from '../src/sse';
+import { LineDecoder, MessageDecoder } from '../src/sse';
 
 describe('SSEDecoder', () => {
   const encoder = new TextEncoder();
@@ -15,6 +15,19 @@ describe('SSEDecoder', () => {
     });
   };
 
+  const parseValue = (str: string) => {
+    const messageDecoder = new MessageDecoder();
+    const encode = encoder.encode(str);
+    const lineDecoder = new LineDecoder();
+    const lines = lineDecoder.getLines(encode);
+    const result: string[] = [];
+    for (const item of lines) {
+      const source = messageDecoder.decode(item.line, item.fieldLength);
+      if (source?.data) result.push(source.data);
+    }
+    return result;
+  };
+
   const parseMultiple = (arr: string[]) => {
     const parse = new LineDecoder();
     const list = [];
@@ -29,6 +42,14 @@ describe('SSEDecoder', () => {
       };
     });
   };
+
+  test('extract value with "space"', () => {
+    expect(parseValue('data: foo bar \n\n')).toEqual(['foo bar ']);
+  });
+
+  test('extract value with "no space"', () => {
+    expect(parseValue('data:foo bar \n\n')).toEqual(['foo bar ']);
+  });
 
   test('basic \n', () => {
     expect(parseString('id: foo bar \n')).toEqual([{ message: 'id: foo bar ', fieldLength: 2 }]);

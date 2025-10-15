@@ -18,11 +18,11 @@ var __copyProps = (to, from, except, desc) => {
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // src/index.ts
-var src_exports = {};
-__export(src_exports, {
+var index_exports = {};
+__export(index_exports, {
   fetchEventData: () => fetchEventData
 });
-module.exports = __toCommonJS(src_exports);
+module.exports = __toCommonJS(index_exports);
 
 // src/sse.ts
 var NewLineChars = {
@@ -182,7 +182,7 @@ var checkOk = async (response) => {
     if (response.headers.get("content-type")?.includes("application/json")) {
       try {
         const errorData = await response.json();
-        message = errorData.message || errorData.error || defaultMessage;
+        message = typeof errorData.message === "string" ? errorData.message : typeof errorData.error === "string" ? errorData.error : JSON.stringify(errorData.message || errorData.error) || defaultMessage;
       } catch (error) {
         throw new Error("Failed to parse error response as JSON");
       }

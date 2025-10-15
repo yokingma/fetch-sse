@@ -5,7 +5,9 @@ export const checkOk = async (response: Response): Promise<void> => {
     if (response.headers.get('content-type')?.includes('application/json')) {
       try {
         const errorData = await response.json();
-        message = errorData.message || errorData.error || defaultMessage;
+        message = typeof errorData.message === 'string' ? errorData.message : 
+          typeof errorData.error === 'string' ? errorData.error : 
+            JSON.stringify(errorData.message || errorData.error) || defaultMessage;
       } catch(error) {
         throw new Error('Failed to parse error response as JSON');
       }

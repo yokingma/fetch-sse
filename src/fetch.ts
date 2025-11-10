@@ -25,8 +25,8 @@ export async function fetchEventData(url: string, options: IFetchOptions = {}): 
       body,
       signal: signal
     });
-    await checkOk(res);
     onOpen?.(res);
+    await checkOk(res);
     // consumes data
     if (typeof onMessage === 'function' && res.body) {
       await parseServerSentEvent(res.body, (event) => {

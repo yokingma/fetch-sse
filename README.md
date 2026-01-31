@@ -48,6 +48,28 @@ await fetchEventData('/api/sse', {
 })
 ```
 
+### Skip Status Check
+
+By default, the library checks if the response status is OK (2xx) before calling `onOpen`. If you need to handle custom status codes or want to process the response regardless of the status, you can use the `skipStatusCheck` option:
+
+```ts
+await fetchEventData('/api/sse', {
+  skipStatusCheck: true,
+  onOpen: (res) => {
+    // This will be called even if status is not 2xx
+    console.log('Response status:', res.status);
+    if (res.status === 299) {
+      // Handle custom status code
+    }
+  },
+  onMessage: (event) => {
+    console.log(event.data);
+  }
+})
+```
+
+When `skipStatusCheck` is `true`, `onOpen` will be called before any status validation, allowing you to handle the response yourself.
+
 Interface
 
 ```ts
@@ -58,6 +80,7 @@ export interface IFetchOptions {
   headers?: HeadersInit | Record<string, any>;
   data?: BodyInit | Record<string, any> | null;
   signal?: AbortSignal;
+  skipStatusCheck?: boolean;
   onMessage?: (event: ServerSentEvent | null, done?: boolean) => void;
   onOpen?: (res?: Response) => void;
   onClose?: () => void;

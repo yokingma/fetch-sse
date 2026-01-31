@@ -3,7 +3,7 @@ import { parseServerSentEvent } from './sse';
 import { checkOk } from './utils';
 
 export async function fetchEventData(url: string, options: IFetchOptions = {}): Promise<void> {
-  const { method, data = null, headers = {}, signal, onMessage, onError, onOpen, onClose } = options;
+  const { method, data = null, headers = {}, signal, skipStatusCheck = false, onMessage, onError, onOpen, onClose } = options;
   const defaultHeaders = {
     Accept: 'text/event-stream',
     'Content-Type': 'application/json'
@@ -25,7 +25,9 @@ export async function fetchEventData(url: string, options: IFetchOptions = {}): 
       body,
       signal: signal
     });
-    await checkOk(res);
+    if (!skipStatusCheck) {
+      await checkOk(res);
+    }
     onOpen?.(res);
     // consumes data
     if (typeof onMessage === 'function' && res.body) {

@@ -11,6 +11,7 @@ export interface IFetchOptions {
   headers?: Headers | Record<string, any>;
   data?: BodyInit | Record<string, any> | null;
   signal?: AbortSignal;
+  skipStatusCheck?: boolean;
   onMessage?: (event: ServerSentEvent | null, done?: boolean) => void;
   onOpen?: (res?: Response) => void;
   onClose?: () => void;

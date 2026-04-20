@@ -8,6 +8,45 @@ describe('fetchEventData', () => {
     jest.clearAllMocks();
   });
 
+  test('should stringify plain objects including null-prototype objects', async () => {
+    const mockResponse = new Response('data: test\n\n', {
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream' }
+    });
+    (global.fetch as jest.Mock).mockResolvedValue(mockResponse);
+
+    const payload = Object.create(null) as Record<string, string>;
+    payload.message = 'hello';
+
+    await fetchEventData('http://example.com', {
+      method: 'POST',
+      data: payload
+    });
+
+    expect(global.fetch).toHaveBeenCalledWith('http://example.com', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ message: 'hello' })
+    }));
+  });
+
+  test('should pass through BodyInit payloads without stringifying them', async () => {
+    const mockResponse = new Response('data: test\n\n', {
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream' }
+    });
+    (global.fetch as jest.Mock).mockResolvedValue(mockResponse);
+
+    await fetchEventData('http://example.com', {
+      method: 'POST',
+      data: 'raw-body'
+    });
+
+    expect(global.fetch).toHaveBeenCalledWith('http://example.com', expect.objectContaining({
+      method: 'POST',
+      body: 'raw-body'
+    }));
+  });
+
   test('should call checkOk before onOpen by default', async () => {
     const mockResponse = new Response('data: test\n\n', {
       status: 200,
@@ -24,6 +63,45 @@ describe('fetchEventData', () => {
     });
 
     expect(onOpen).toHaveBeenCalledWith(mockResponse);
+  });
+
+  test('should call onClose after the response stream is fully consumed', async () => {
+    const mockResponse = new Response('data: test\n\n', {
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream' }
+    });
+    (global.fetch as jest.Mock).mockResolvedValue(mockResponse);
+
+    const onClose = jest.fn();
+    const onMessage = jest.fn();
+
+    await fetchEventData('http://example.com', {
+      onClose,
+      onMessage
+    });
+
+    expect(onMessage).toHaveBeenCalledWith({
+      event: null,
+      data: 'test',
+      raw: ['test']
+    });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  test('should not call onClose when there is no readable response body', async () => {
+    const mockResponse = new Response(null, {
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream' }
+    });
+    (global.fetch as jest.Mock).mockResolvedValue(mockResponse);
+
+    const onClose = jest.fn();
+
+    await fetchEventData('http://example.com', {
+      onClose
+    });
+
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   test('should throw error when status is not ok by default', async () => {
@@ -84,5 +162,18 @@ describe('fetchEventData', () => {
 
     expect(onOpen).toHaveBeenCalledWith(mockResponse);
     expect(mockResponse.status).toBe(299);
+  });
+
+  test('should report fetch rejections through onError', async () => {
+    const networkError = new Error('network down');
+    (global.fetch as jest.Mock).mockRejectedValue(networkError);
+
+    const onError = jest.fn();
+
+    await fetchEventData('http://example.com', {
+      onError
+    });
+
+    expect(onError).toHaveBeenCalledWith(networkError);
   });
 });

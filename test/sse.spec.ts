@@ -1,8 +1,28 @@
-import { LineDecoder, MessageDecoder } from '../src/sse';
+import { LineDecoder, MessageDecoder, parseServerSentEvent } from '../src/sse';
 
 describe('SSEDecoder', () => {
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
+  const createStream = (chunks: Array<string | Uint8Array>) => {
+    return new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const chunk of chunks) {
+          controller.enqueue(typeof chunk === 'string' ? encoder.encode(chunk) : chunk);
+        }
+        controller.close();
+      }
+    });
+  };
+
+  const parseEvents = async (chunks: Array<string | Uint8Array>) => {
+    const messages = [];
+
+    await parseServerSentEvent(createStream(chunks), (event) => {
+      messages.push(event);
+    });
+
+    return messages;
+  };
 
   const parseString = (str: string) => {
     const parse = new LineDecoder();
@@ -115,5 +135,86 @@ describe('SSEDecoder', () => {
     for (let i = 0; i < list.length; i++) {
       expect(list[i].message).toEqual(i === 0 ? 'id: abc' : 'data: def');
     }
+  });
+
+  test('preserves message state when a single SSE event spans multiple chunks', async () => {
+    const messages = await parseEvents(['event: ping\n', 'data: one\ndata: two\n\n']);
+
+    expect(messages).toEqual([
+      {
+        event: 'ping',
+        data: 'one\ntwo',
+        raw: ['ping', 'one', 'two']
+      }
+    ]);
+  });
+
+  test.each([
+    ['blank block', ['\n\n']],
+    ['comment-only block', [': keepalive\n\n']],
+    ['id-only block', ['id: 1\n\n']],
+    ['event-only block', ['event: ping\n\n']],
+    ['retry-only block', ['retry: 5000\n\n']],
+  ])('does not emit messages for %s', async (_name, chunks: Array<string | Uint8Array>) => {
+    await expect(parseEvents(chunks)).resolves.toEqual([]);
+  });
+
+  test('treats a field without a colon as an empty-value field', async () => {
+    await expect(parseEvents(['data\ndata\n\n'])).resolves.toEqual([
+      {
+        event: null,
+        data: '\n',
+        raw: ['', '']
+      }
+    ]);
+  });
+
+  test('resets the event name when receiving an empty event field', async () => {
+    await expect(parseEvents(['event: ping\nevent\ndata: hi\n\n'])).resolves.toEqual([
+      {
+        event: null,
+        data: 'hi',
+        raw: ['ping', '', 'hi']
+      }
+    ]);
+  });
+
+  test('ignores one leading UTF-8 BOM before parsing fields', async () => {
+    const bomPrefixedData = new Uint8Array([0xEF, 0xBB, 0xBF, ...encoder.encode('data: hi\n\n')]);
+
+    await expect(parseEvents([bomPrefixedData])).resolves.toEqual([
+      {
+        event: null,
+        data: 'hi',
+        raw: ['hi']
+      }
+    ]);
+  });
+
+  test('ignores a UTF-8 BOM that is split across multiple chunks', async () => {
+    const finalChunk = new Uint8Array([0xBF, ...encoder.encode('data: hi\n\n')]);
+
+    await expect(parseEvents([
+      new Uint8Array([0xEF]),
+      new Uint8Array([0xBB]),
+      finalChunk
+    ])).resolves.toEqual([
+      {
+        event: null,
+        data: 'hi',
+        raw: ['hi']
+      }
+    ]);
+  });
+
+  test('decodes Buffer-backed lines in Node environments', () => {
+    const messageDecoder = new MessageDecoder();
+
+    expect(messageDecoder.decode(Buffer.from('data: hi'), 4)).toBeUndefined();
+    expect(messageDecoder.decode(Buffer.from(''), -1)).toEqual({
+      event: null,
+      data: 'hi',
+      raw: ['hi']
+    });
   });
 });

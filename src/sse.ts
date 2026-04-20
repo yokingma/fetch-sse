@@ -9,13 +9,13 @@ export const NewLineChars = {
 
 export async function parseServerSentEvent(stream: ReadableStream<Uint8Array>, onMessage: (event: ServerSentEvent) => void) {
   const lineDecoder = new LineDecoder();
+  const messageDecoder = new MessageDecoder();
 
   await getBytes(stream, (chunk: Uint8Array) => {
-    const decoder = new MessageDecoder();
     // get string lines, newline-separated should be \n,\r,\r\n
     const list = lineDecoder.getLines(chunk);
     for (const data of list) {
-      const source = decoder.decode(data.line, data.fieldLength);
+      const source = messageDecoder.decode(data.line, data.fieldLength);
       if (source) onMessage(source);
     }
   });
@@ -47,38 +47,64 @@ export class MessageDecoder {
     this.chunks = [];
   }
 
-
   public decode(line: Uint8Array, filedLength: number) {
     if (line.length === 0) {
-      // empty line denotes end of message. return event data and start a new message:
+      // Ignore control-only blocks. SSE only dispatches when at least one data field was seen.
+      if (this.data.length === 0) {
+        this.reset();
+        return;
+      }
+
       const sse: ServerSentEvent = {
         event: this.event,
         data: this.data.join('\n'),
         raw: this.chunks,
       };
 
-      // new message
-      this.event = null;
-      this.data = [];
-      this.chunks = [];
+      this.reset();
 
       return sse;
-    } else if (filedLength > 0) {
-      // line is of format "<field>:<value>" or "<field>: <value>"
-      const field = this.decodeText(line.subarray(0, filedLength));
-      const valueOffset = filedLength + (line[filedLength + 1] === NewLineChars.Space ? 2 : 1);
-      const value = this.decodeText(line.subarray(valueOffset));
-
-      this.chunks.push(value);
-      switch (field) {
-      case 'event':
-        this.event = value;
-        break;
-      case 'data':
-        this.data.push(value);
-        break;
-      }
     }
+
+    if (filedLength === 0) {
+      return;
+    }
+
+    const { field, value } = this.parseField(line, filedLength);
+    this.chunks.push(value);
+    switch (field) {
+    case 'event':
+      this.event = value || null;
+      break;
+    case 'data':
+      this.data.push(value);
+      break;
+    default:
+      break;
+    }
+  }
+
+  private parseField(line: Uint8Array, filedLength: number) {
+    if (filedLength === -1) {
+      return {
+        field: this.decodeText(line),
+        value: ''
+      };
+    }
+
+    const field = this.decodeText(line.subarray(0, filedLength));
+    const valueOffset = filedLength + (line[filedLength + 1] === NewLineChars.Space ? 2 : 1);
+
+    return {
+      field,
+      value: this.decodeText(line.subarray(valueOffset))
+    };
+  }
+
+  private reset() {
+    this.event = null;
+    this.data = [];
+    this.chunks = [];
   }
 
   private decodeText(bytes: Bytes): string {
@@ -124,12 +150,14 @@ export class LineDecoder {
   private position: number;
   private fieldLength: number;
   private trailingNewLine: boolean;
+  private bomProcessed: boolean;
 
   constructor() {
     this.position = 0;
     this.fieldLength = -1;
     this.buffer = undefined;
     this.trailingNewLine = false;
+    this.bomProcessed = false;
   }
 
   getLines(chunk: Uint8Array): LinesResult[] {
@@ -142,6 +170,10 @@ export class LineDecoder {
       buffer.set(this.buffer);
       buffer.set(chunk, this.buffer.length);
       this.buffer = buffer;
+    }
+
+    if (!this.processBom()) {
+      return [];
     }
 
     const { buffer } = this;
@@ -200,5 +232,42 @@ export class LineDecoder {
 
     
     return list;
+  }
+
+  private processBom() {
+    if (this.bomProcessed) {
+      return true;
+    }
+
+    if (this.buffer === undefined || this.buffer.length === 0) {
+      this.bomProcessed = true;
+      return true;
+    }
+
+    const [first, second, third] = this.buffer;
+    if (first !== 0xEF) {
+      this.bomProcessed = true;
+      return true;
+    }
+
+    if (this.buffer.length === 1) {
+      return false;
+    }
+
+    if (second !== 0xBB) {
+      this.bomProcessed = true;
+      return true;
+    }
+
+    if (this.buffer.length === 2) {
+      return false;
+    }
+
+    if (third === 0xBF) {
+      this.buffer = this.buffer.subarray(3);
+    }
+
+    this.bomProcessed = true;
+    return true;
   }
 }
